@@ -9,9 +9,124 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserRole {
+  EXPORTER
+  QA_AGENCY
+  IMPORTER
+  ADMIN
+}
+
+enum BatchStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CERTIFIED
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id           String       @id @default(uuid())
+  email        String       @unique
+  name         String
+  role         UserRole     @default(EXPORTER)
+  did          String?      @unique 
+  organization String?
+  
+  batches      Batch[]
+  inspections  Inspection[]
+  auditLogs    AuditLog[]
+  
+  createdAt    DateTime     @default(now())
+}
+
+model Batch {
+  id                 String      @id @default(uuid())
+  batchNumber        String      @unique
+  exporterId         String
+  exporter           User        @relation(fields: [exporterId], references: [id])
+  
+  cropType           String
+  quantity           Float
+  unit               String
+  location           String
+  harvestDate        DateTime
+  destinationCountry String
+  
+  // Storing simple arrays of strings for URLs
+  labReports         String[]
+  farmPhotos         String[]
+  
+  status             BatchStatus @default(PENDING)
+  
+  inspection         Inspection?
+  certificate        Certificate?
+
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+}
+
+
+model Inspection {
+  id               String   @id @default(uuid())
+  batchId          String   @unique
+  batch            Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  inspectorId      String
+  inspector        User     @relation(fields: [inspectorId], references: [id])
+
+  moisture         String   
+  pesticideResidue String   
+  organic          Boolean
+  heavyMetals      String?
+  isoCode          String?
+  grade            String?
+  notes            String?
+
+  inspectedAt      DateTime @default(now())
+}
+
+model Certificate {
+  id              String   @id @default(uuid())
+  batchId         String   @unique
+  batch           Batch    @relation(fields: [batchId], references: [id])
+
+
+  batchNumber     String
+  productType     String
+  exporterName    String
+  qaAgencyName    String
+  
+  issuedAt        DateTime
+  expiresAt       DateTime
+
+  vc              VerifiableCredential?
+
+  createdAt       DateTime @default(now())
+
+}
+
+model VerifiableCredential {
+  id            String      @id @default(uuid())
+  certificateId String      @unique
+  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  vcJson        Json        // Stores the FULL JSON structure you provided
+  
+  issuerDid     String
+  subjectDid    String
+  signature     String
+  verifyUrl     String      // localhost:3000/verify/...
+
+  createdAt     DateTime    @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String
+  entityId    String
+  actorId     String?
+  actor       User?    @relation(fields: [actorId], references: [id])
+  details     Json?
+  createdAt   DateTime @default(now())
 }
