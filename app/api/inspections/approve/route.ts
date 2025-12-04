@@ -5,33 +5,31 @@ import QRCode from "qrcode";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { 
-      batchId, 
-      moisture, 
-      pesticide, 
-      organic, 
-      grade, 
-      notes 
-    } = body;
+    const { batchId, moisture, pesticide, organic, grade, notes } = body;
 
-    // --- CONFIGURATION ---
-    // Hardcoded to localhost for the Hackathon Demo
     const BASE_URL = "http://localhost:3000";
 
-    // --- 1. FIND ACTORS ---
-    // We need to link this inspection to a real User (the Inspector)
-    
-    // Find the Inspector (QA Agency)
-    // For the hackathon, we grab the first user with the QA_AGENCY role.
-    const inspectorUser = await prisma.user.findFirst({
-      where: { role: "QA_AGENCY" } 
+    // ----------------------------
+    // 1. Ensure QA inspector exists
+    // ----------------------------
+    let inspector = await prisma.user.findFirst({
+      where: { role: "QA_AGENCY" }
     });
 
-    if (!inspectorUser) {
-      return NextResponse.json({ error: "No QA Agency user found. Please run SQL seeds." }, { status: 400 });
+    if (!inspector) {
+      inspector = await prisma.user.create({
+        data: {
+          email: "inspector@apeda.gov.in",
+          name: "QA Inspector",
+          role: "QA_AGENCY",
+          organization: "APEDA Quality Assurance"
+        }
+      });
     }
 
-    // Get Batch details to find the Exporter's info for the VC
+    // ----------------------------
+    // 2. Get batch + exporter
+    // ----------------------------
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
       include: { exporter: true }
@@ -41,94 +39,89 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }
 
-    // --- 2. EXECUTE TRANSACTION ---
-    // We use a transaction so if VC generation fails, nothing is saved.
+    // ----------------------------
+    // 3. FULL TRANSACTION
+    // ----------------------------
     const result = await prisma.$transaction(async (tx) => {
       
-      // A. Create Inspection Record
+      // A. Inspection record
       const inspection = await tx.inspection.create({
         data: {
-          moisture: moisture.toString(), 
+          moisture: moisture.toString(),
           pesticideResidue: pesticide.toString(),
           organic: Boolean(organic),
-          grade: grade,
-          notes: notes,
-          batch: { connect: { id: batchId } },
-          inspector: { connect: { id: inspectorUser.id } }
+          grade,
+          notes,
+          batch: { connect: { id: batchId }},
+          inspector: { connect: { id: inspector.id }}
         }
       });
 
-      // B. Update Batch Status
+      // B. Mark Batch Approved
       await tx.batch.update({
         where: { id: batchId },
         data: { status: "APPROVED" }
       });
 
-      // C. Create Certificate Metadata
-      // This allows the "Digital Passports" page to load fast without parsing JSON
+      // C. Create certificate
       const certificate = await tx.certificate.create({
         data: {
           batchNumber: batch.batchNumber,
           productType: batch.cropType,
           exporterName: batch.exporter.organization || batch.exporter.name,
-          qaAgencyName: inspectorUser.organization || inspectorUser.name,
+          qaAgencyName: inspector.organization || inspector.name,
           issuedAt: new Date(),
-          expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // +1 Year validity
+          expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
           batch: { connect: { id: batchId } }
         }
       });
 
-      // D. Generate Verification URL & QR Code
+      // D. Generate VC URL + QR
       const verifyUrl = `${BASE_URL}/verify/${certificate.id}`;
-      // Note: We generate the QR Data URL here but we don't strictly need to save the image blob 
-      // if we generate it on the fly, but storing the URL is helpful.
-      const qrCodeData = await QRCode.toDataURL(verifyUrl);
+      const qrCode = await QRCode.toDataURL(verifyUrl);
 
-      // E. Create the Verifiable Credential (The JSON Blob)
-      // This matches the W3C structure required by Inji
+      // E. VC PAYLOAD (IMPORTANT: matches frontend format!)
       const vcPayload = {
         "@context": ["https://www.w3.org/2018/credentials/v1"],
         id: `urn:uuid:${certificate.id}`,
         type: ["VerifiableCredential", "FoodExportQualityCertificate"],
-        issuer: { 
-          id: inspectorUser.did || "did:web:example.com", 
-          name: inspectorUser.organization || "QA Agency" 
+        issuer: {
+          id: inspector.did || "did:web:example.com",
+          name: inspector.organization || "QA Agency"
         },
         issuanceDate: new Date().toISOString(),
         credentialSubject: {
-          id: batch.exporter.did || "did:example:exporter",
           batchId: batch.batchNumber,
           productType: batch.cropType,
-          quantity: batch.quantity,
-          unit: batch.unit,
-          inspectionResults: {
-             moisture,
-             pesticideResidue: pesticide,
-             grade,
-             organic
+          exporter: batch.exporter.name,
+          quality: {
+            moisture,
+            pesticide,
+            grade,
+            organic
           }
         }
       };
 
-      // F. Save the VC Record
+      // F. Save VC
       await tx.verifiableCredential.create({
         data: {
-          vcJson: vcPayload as any, 
-          issuerDid: inspectorUser.did || "did:temp",
+          vcJson: vcPayload as any,
+          issuerDid: inspector.did || "did:temp",
           subjectDid: batch.exporter.did || "did:temp",
-          signature: "mock-crypto-signature-generated-by-backend", 
-          verifyUrl: verifyUrl,
+          signature: "mock-crypto-signature",
+          verifyUrl,
           certificate: { connect: { id: certificate.id } }
         }
       });
 
-      // G. Audit Log
+      // G. Audit Log (inside transaction = safe)
       await tx.auditLog.create({
         data: {
           action: "ISSUED_CREDENTIAL",
           entityType: "CERTIFICATE",
           entityId: certificate.id,
-          actorId: inspectorUser.id,
+          actorId: inspector.id,
           details: { batchNumber: batch.batchNumber }
         }
       });
@@ -138,8 +131,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
 
-  } catch (error: any) {
-    console.error("Inspection API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Inspection API Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

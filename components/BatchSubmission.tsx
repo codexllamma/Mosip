@@ -74,48 +74,52 @@ export function BatchSubmission() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
+  e.preventDefault();
+  setIsSubmitting(true);
 
-    try {
-      // CALL YOUR NEW NEXT.JS API ROUTE
-      const response = await fetch('/api/batches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // ... existing fields ...
-          exporterEmail: userEmail // Pass the real email from context
-        }),
-      });
+  try {
+    const response = await fetch('/api/batches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cropType: formData.cropType,
+        destinationCountry: formData.destinationCountry,
+        harvestDate: formData.harvestDate,
+        location: formData.location,
+        quantityKg: formData.quantityKg,
+        exporterEmail: userEmail,
+        labReports: labReports,
+        farmPhotos: farmPhotos,
+      }),
+    });
 
-      const result = await response.json();
+    const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit batch');
-      }
-
-      // Success UI updates
-      setShowSuccess(true);
-      setFormData({
-        cropType: '',
-        destinationCountry: '',
-        harvestDate: '',
-        location: '',
-        quantityKg: '',
-      });
-      setLabReports([]);
-      setFarmPhotos([]);
-      
-      // Auto-hide success message
-      setTimeout(() => setShowSuccess(false), 5000);
-
-    } catch (error) {
-      console.error("Submission Error:", error);
-      alert("Failed to submit batch. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to submit batch');
     }
+
+    // Success UI updates
+    setShowSuccess(true);
+    setFormData({
+      cropType: '',
+      destinationCountry: '',
+      harvestDate: '',
+      location: '',
+      quantityKg: '',
+    });
+    setLabReports([]);
+    setFarmPhotos([]);
+    
+    setTimeout(() => setShowSuccess(false), 5000);
+
+  } catch (error: any) {
+    console.error("Submission Error:", error);
+    alert(error.message || "Failed to submit batch. Please try again.");
+  } finally {
+    setIsSubmitting(false);
   }
+}
 
   return (
     <div className="max-w-4xl">

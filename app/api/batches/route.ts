@@ -10,26 +10,30 @@ export async function POST(req: NextRequest) {
       harvestDate, 
       location, 
       quantityKg,
-      // Default fallback just in case, but frontend should send the real one
       exporterEmail = "contact@bharatexports.com" 
     } = body;
 
-    // 1. Find the SPECIFIC Exporter by Email
-    // We changed findFirst -> findUnique to get the exact user
-    const exporter = await prisma.user.findUnique({
+    // 1. Find or CREATE the exporter
+    let exporter = await prisma.user.findUnique({
       where: { email: exporterEmail } 
     });
 
+    // If exporter doesn't exist, create them automatically
     if (!exporter) {
-      return NextResponse.json({ 
-        error: `Exporter account (${exporterEmail}) not found. Please run SQL seeds.` 
-      }, { status: 400 });
+      exporter = await prisma.user.create({
+        data: {
+          email: exporterEmail,
+          name: exporterEmail.split('@')[0], // Use email prefix as name
+          role: 'EXPORTER',
+        }
+      });
+      console.log('✅ Created new exporter:', exporter.email);
     }
 
     // 2. Generate Batch Number
     const batchNumber = `BTH-${Date.now().toString().slice(-6)}`;
 
-    // 3. Create Batch (Using Prisma relations)
+    // 3. Create Batch
     const newBatch = await prisma.batch.create({
       data: {
         batchNumber,
@@ -42,7 +46,6 @@ export async function POST(req: NextRequest) {
         status: 'PENDING',
         labReports: [],
         farmPhotos: [],
-        // Connect to the specific ID we found above
         exporter: { connect: { id: exporter.id } }
       }
     });

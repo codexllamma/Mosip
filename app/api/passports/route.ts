@@ -1,39 +1,47 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-// Prevent Next.js from caching this route statically
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // 1. Fetch certificates with the related VC data
+    // 1. Get certificates + VC
     const certificates = await prisma.certificate.findMany({
-      include: {
-        vc: true, // We need this to get the verifyUrl and vcJson
-      },
-      orderBy: { issuedAt: 'desc' }
+      include: { vc: true },
+      orderBy: { issuedAt: "desc" }
     });
 
-    // 2. Map Prisma (CamelCase) data to the format your Frontend expects
-    const formatted = certificates.map(cert => ({
-      id: cert.id,
-      batch_number: cert.batchNumber,
-      crop_type: cert.productType,
-      exporter_name: cert.exporterName,
-      issued_at: cert.issuedAt,
-      
-      // Get the URL from the relational table
-      verification_url: cert.vc?.verifyUrl || "",
-      
-      // Pass the raw W3C JSON blob so the frontend can parse specific fields
-      // (moisture, pesticide, grade, etc.)
-      credential_data: cert.vc?.vcJson || {}
-    }));
+    // 2. Normalize to match frontend shape
+    const formatted = certificates.map(c => {
+      const vc = c.vc?.vcJson || {};
+      const subject = vc.credentialSubject || {};
+      const quality = subject.quality || {};
+
+      return {
+        id: c.id,
+        batch_number: c.batchNumber,
+        crop_type: c.productType,
+        exporter_name: c.exporterName,
+        issued_at: c.issuedAt,
+        verification_url: c.vc?.verifyUrl || "",
+        credential_data: {
+          issuer: vc.issuer || {},
+          credentialSubject: {
+            quality: {
+              moisture: quality.moisture ?? "0",
+              pesticide: quality.pesticide ?? "0",
+              grade: quality.grade ?? "A",
+              organic: quality.organic ?? false
+            }
+          }
+        }
+      };
+    });
 
     return NextResponse.json(formatted);
 
-  } catch (error: any) {
-    console.error("Passports API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Passports API Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
