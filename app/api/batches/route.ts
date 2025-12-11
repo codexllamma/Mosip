@@ -9,25 +9,26 @@ export async function POST(req: NextRequest) {
       destinationCountry, 
       harvestDate, 
       location, 
-      quantityKg,
-      exporterEmail = "contact@bharatexports.com" 
+      quantity, // Changed from quantityKg
+      unit,     // Added unit
+      exporterEmail = "contact@bharatexports.com",
+      labReports = [], 
+      farmPhotos = []  
     } = body;
 
-    // 1. Find or CREATE the exporter
+    
     let exporter = await prisma.user.findUnique({
       where: { email: exporterEmail } 
     });
 
-    // If exporter doesn't exist, create them automatically
     if (!exporter) {
       exporter = await prisma.user.create({
         data: {
           email: exporterEmail,
-          name: exporterEmail.split('@')[0], // Use email prefix as name
+          name: exporterEmail.split('@')[0],
           role: 'EXPORTER',
         }
       });
-      console.log('✅ Created new exporter:', exporter.email);
     }
 
     // 2. Generate Batch Number
@@ -41,16 +42,16 @@ export async function POST(req: NextRequest) {
         destinationCountry,
         harvestDate: new Date(harvestDate),
         location,
-        quantity: parseFloat(quantityKg),
-        unit: 'kg',
+        quantity: parseFloat(quantity), // Ensure it's a float
+        unit: unit || 'kg',
         status: 'PENDING',
-        labReports: [],
-        farmPhotos: [],
+        labReports: labReports, // Storing URLs
+        farmPhotos: farmPhotos, // Storing URLs
         exporter: { connect: { id: exporter.id } }
       }
     });
 
-    // 4. Create Audit Log
+    // 4. Audit Log
     await prisma.auditLog.create({
       data: {
         action: 'CREATED_BATCH',

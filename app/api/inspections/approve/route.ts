@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       });
 
       // D. Generate VC URL + QR
-      const verifyUrl = `${BASE_URL}/verify/${certificate.id}`;
+      const verifyUrl = `${BASE_URL}api/verify/${certificate.id}`;
       const qrCode = await QRCode.toDataURL(verifyUrl);
 
       // E. VC PAYLOAD (IMPORTANT: matches frontend format!)

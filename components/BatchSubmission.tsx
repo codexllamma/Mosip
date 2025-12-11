@@ -1,67 +1,61 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Upload, X, FileText, Image as ImageIcon } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useRole } from '../contexts/RoleContext';
 
 interface FormData {
   cropType: string;
-  destinationCountry: string;
-  harvestDate: string;
+  quantity: string;
+  unit: string;
   location: string;
-  quantityKg: string;
+  harvestDate: string;
+  destinationCountry: string;
 }
 
 export function BatchSubmission() {
-  const { userName } = useRole();
+  const { userEmail } = useRole();
+  
+  // REFS: Connects the UI buttons to the hidden file inputs
+  const labInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // STATE: Form Fields
   const [formData, setFormData] = useState<FormData>({
     cropType: '',
-    destinationCountry: '',
-    harvestDate: '',
+    quantity: '',
+    unit: 'kg', // Default unit
     location: '',
-    quantityKg: '',
+    harvestDate: '',
+    destinationCountry: '',
   });
-  const [labReports, setLabReports] = useState<string[]>([]);
-  const [farmPhotos, setFarmPhotos] = useState<string[]>([]);
+
+  // STATE: Files (Storing real File objects now)
+  const [labReports, setLabReports] = useState<File[]>([]);
+  const [farmPhotos, setFarmPhotos] = useState<File[]>([]);
+  
+  // STATE: UI Status
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const cropTypes = [
-    'Basmati Rice',
-    'Jasmine Rice',
-    'Wheat',
-    'Alphonso Mangoes',
-    'Turmeric',
-    'Black Pepper',
-    'Cardamom',
-    'Tea',
-    'Coffee',
-  ];
-
-  const countries = [
-    'United Arab Emirates',
-    'United States',
-    'United Kingdom',
-    'Saudi Arabia',
-    'Singapore',
-    'Germany',
-    'France',
-    'Japan',
-  ];
-
-  const { userEmail } = useRole();
+  // DROPDOWN DATA
+  const cropTypes = ['Basmati Rice', 'Jasmine Rice', 'Wheat', 'Alphonso Mangoes', 'Turmeric', 'Black Pepper', 'Cardamom', 'Tea', 'Coffee'];
+  const units = ['kg', 'tonnes', 'quintal', 'lbs', 'boxes'];
+  const countries = ['United Arab Emirates', 'United States', 'United Kingdom', 'Saudi Arabia', 'Singapore', 'Germany', 'France', 'Japan'];
+  
+  
+  // HANDLERS
   function handleInputChange(field: keyof FormData, value: string) {
     setFormData(prev => ({ ...prev, [field]: value }));
   }
 
-  function handleFileUpload(type: 'lab' | 'photo') {
-    const mockFiles = type === 'lab'
-      ? ['lab-report-pesticide-analysis.pdf', 'lab-report-moisture-content.pdf']
-      : ['farm-photo-harvest.jpg', 'farm-photo-storage.jpg'];
-
-    if (type === 'lab') {
-      setLabReports(prev => [...prev, ...mockFiles.slice(0, 1)]);
-    } else {
-      setFarmPhotos(prev => [...prev, ...mockFiles.slice(0, 1)]);
+  // Handle actual file selection from the hidden inputs
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, type: 'lab' | 'photo') {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      if (type === 'lab') {
+        setLabReports(prev => [...prev, ...newFiles]);
+      } else {
+        setFarmPhotos(prev => [...prev, ...newFiles]);
+      }
     }
   }
 
@@ -73,56 +67,89 @@ export function BatchSubmission() {
     }
   }
 
+  // Triggers to open the file dialog
+  const triggerLabUpload = () => labInputRef.current?.click();
+  const triggerPhotoUpload = () => photoInputRef.current?.click();
+
   async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  setIsSubmitting(true);
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  try {
-    const response = await fetch('/api/batches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cropType: formData.cropType,
-        destinationCountry: formData.destinationCountry,
-        harvestDate: formData.harvestDate,
-        location: formData.location,
-        quantityKg: formData.quantityKg,
-        exporterEmail: userEmail,
-        labReports: labReports,
-        farmPhotos: farmPhotos,
-      }),
-    });
+    try {
+      // HACKATHON MODE: Skip actual upload.
+      // We just take the file names so the DB shows 'something' was uploaded.
+      const mockLabUrls = labReports.map(file => `mock_url/${file.name}`);
+      const mockPhotoUrls = farmPhotos.map(file => `mock_url/${file.name}`);
 
-    const result = await response.json();
+      const response = await fetch('/api/batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cropType: formData.cropType,
+          destinationCountry: formData.destinationCountry,
+          harvestDate: formData.harvestDate,
+          location: formData.location,
+          quantity: formData.quantity,
+          unit: formData.unit,
+          exporterEmail: userEmail,
+          // Sending filenames instead of real URLs
+          labReports: mockLabUrls,
+          farmPhotos: mockPhotoUrls,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to submit batch');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit batch');
+      }
+
+      // Success UI
+      setShowSuccess(true);
+      
+      // Reset Form
+      setFormData({
+        cropType: '',
+        quantity: '',
+        unit: 'kg',
+        location: '',
+        harvestDate: '',
+        destinationCountry: '',
+      });
+      setLabReports([]);
+      setFarmPhotos([]);
+      
+      setTimeout(() => setShowSuccess(false), 5000);
+
+    } catch (error: any) {
+      console.error("Submission Error:", error);
+      alert(error.message || "Failed to submit batch.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Success UI updates
-    setShowSuccess(true);
-    setFormData({
-      cropType: '',
-      destinationCountry: '',
-      harvestDate: '',
-      location: '',
-      quantityKg: '',
-    });
-    setLabReports([]);
-    setFarmPhotos([]);
-    
-    setTimeout(() => setShowSuccess(false), 5000);
-
-  } catch (error: any) {
-    console.error("Submission Error:", error);
-    alert(error.message || "Failed to submit batch. Please try again.");
-  } finally {
-    setIsSubmitting(false);
   }
-}
 
   return (
     <div className="max-w-4xl">
+      {/* HIDDEN INPUTS */}
+      <input 
+        type="file" 
+        ref={labInputRef} 
+        onChange={(e) => handleFileSelect(e, 'lab')} 
+        className="hidden" 
+        accept=".pdf,.doc,.docx"
+        multiple 
+      />
+      <input 
+        type="file" 
+        ref={photoInputRef} 
+        onChange={(e) => handleFileSelect(e, 'photo')} 
+        className="hidden" 
+        accept="image/*"
+        multiple 
+      />
+
+      {/* SUCCESS MESSAGE */}
       {showSuccess && (
         <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
           <div className="w-5 h-5 bg-emerald-600 rounded-full flex items-center justify-center shrink-0 mt-0.5">
@@ -144,10 +171,13 @@ export function BatchSubmission() {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          
+          {/* SECTION 1: Product Information */}
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-slate-900">Product Information</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Crop Type */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Crop Type <span className="text-rose-500">*</span>
@@ -165,6 +195,7 @@ export function BatchSubmission() {
                 </select>
               </div>
 
+              {/* Destination */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Destination Country <span className="text-rose-500">*</span>
@@ -184,10 +215,27 @@ export function BatchSubmission() {
             </div>
           </div>
 
+          {/* SECTION 2: Logistics & Quantity */}
           <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-slate-900">Logistics Details</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Logistics & Quantity</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Location */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Farm Location <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g., Green Valley Farms, Punjab, India"
+                  value={formData.location}
+                  onChange={(e) => handleInputChange('location', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              {/* Harvest Date */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Harvest Date <span className="text-rose-500">*</span>
@@ -201,44 +249,45 @@ export function BatchSubmission() {
                 />
               </div>
 
+              {/* Quantity & Unit (Split Inputs) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Location <span className="text-rose-500">*</span>
+                  Quantity <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Punjab, India"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Quantity (kg) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  placeholder="e.g., 5000"
-                  value={formData.quantityKg}
-                  onChange={(e) => handleInputChange('quantityKg', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                />
+                <div className="flex gap-3">
+                  <input
+                    type="number"
+                    required
+                    placeholder="e.g. 5000"
+                    value={formData.quantity}
+                    onChange={(e) => handleInputChange('quantity', e.target.value)}
+                    className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  />
+                  <select
+                    value={formData.unit}
+                    onChange={(e) => handleInputChange('unit', e.target.value)}
+                    className="w-32 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-slate-50"
+                  >
+                    {units.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* SECTION 3: Documentation */}
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-slate-900">Documentation</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Lab Reports Area */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Lab Reports</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Lab Reports (PDF)</label>
                 <div
-                  onClick={() => handleFileUpload('lab')}
+                  onClick={triggerLabUpload}
                   className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer"
                 >
                   <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
@@ -250,12 +299,8 @@ export function BatchSubmission() {
                     {labReports.map((file, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
                         <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span className="text-sm text-slate-700 flex-1 truncate">{file}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile('lab', index)}
-                          className="text-slate-400 hover:text-slate-600"
-                        >
+                        <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
+                        <button type="button" onClick={() => removeFile('lab', index)} className="text-slate-400 hover:text-slate-600">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -264,10 +309,11 @@ export function BatchSubmission() {
                 )}
               </div>
 
+              {/* Farm Photos Area */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Farm Photos</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Farm Photos (JPG/PNG)</label>
                 <div
-                  onClick={() => handleFileUpload('photo')}
+                  onClick={triggerPhotoUpload}
                   className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-emerald-500 hover:bg-emerald-50 transition-colors cursor-pointer"
                 >
                   <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
@@ -279,12 +325,8 @@ export function BatchSubmission() {
                     {farmPhotos.map((file, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
                         <ImageIcon className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span className="text-sm text-slate-700 flex-1 truncate">{file}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile('photo', index)}
-                          className="text-slate-400 hover:text-slate-600"
-                        >
+                        <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
+                        <button type="button" onClick={() => removeFile('photo', index)} className="text-slate-400 hover:text-slate-600">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
