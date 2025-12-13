@@ -14,15 +14,19 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  password     String?
-  role         UserRole @default(EXPORTER)
-  organization String?
-  did          String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  id              String       @id @default(uuid())
+  email           String       @unique
+  name            String
+  createdAt       DateTime     @default(now())
+  did             String?      @unique
+  organization    String?
+  role            UserRole     @default(EXPORTER)
+  password        String?
+  auditLogs       AuditLog[]
+  assignedBatches Batch[]      @relation("AssignedInspector")
+  exportedBatches Batch[]      @relation("BatchExporter")
+  inspections     Inspection[]
+  qaProfile       QAProfile?
 }
 
 model QAProfile {
@@ -70,6 +74,10 @@ model Batch {
   updatedAt           DateTime    @updatedAt
   exporterId          String
   assignedInspectorId String?
+  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
+  exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
+  certificate         Certificate?
+  inspection          Inspection?
 }
 
 model Inspection {
@@ -117,8 +125,27 @@ model AuditLog {
   actorId    String?
   details    Json?
   createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
 }
 
+model exporter {
+  iecNum   BigInt @id @unique @default(autoincrement())
+  address  String
+  city     String
+  phoneNum BigInt
+  country  String
+  panNum   String
+  gstNum   String
+}
+
+model ProcessingUnit {
+  id          String @id
+  name        String
+  address     String
+  fssaiNumber BigInt
+}
+
+>>>>>>> b95e65cd6509201385620d7a44d1854ba983fdcf
 enum UserRole {
   EXPORTER
   QA_AGENCY
