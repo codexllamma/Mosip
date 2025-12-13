@@ -18,9 +18,7 @@ async def shutdown():
 async def match_endpoint():
     result = await match_exporter_using_city(
         db=db,
-        exporter_address="Andheri East, Mumbai",
-        exporter_city="Mumbai",
-        exporter_lat=19.0760,
-        exporter_lng=72.8777
+        pincode=400092
     )
+    print(result)
     return result

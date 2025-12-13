@@ -10,16 +10,14 @@ from geopy.distance import geodesic
 # --- geocoder + cache (synchronous geopy used inside async code, that's fine) ---
 geolocator = Nominatim(user_agent="exporter-qa-matcher")
 
+def pin_to_lat_lon(pincode):
+    geolocator = Nominatim(user_agent="my_python_app_name")
+    location = geolocator.geocode({'postalcode': pincode, 'country': 'India'})
+    if location:
+        return location.latitude, location.longitute
+    return None, None
+
 @functools.lru_cache(maxsize=2048)
-def geocode_cache(address: str) -> Optional[Tuple[float, float]]:
-    """Return (lat,lng) or None. Cached to reduce external calls."""
-    try:
-        loc = geolocator.geocode(address, exactly_one=True, timeout=10)
-        if loc:
-            return (loc.latitude, loc.longitude)
-    except Exception:
-        return None
-    return None
 
 def distance_km_from_coords(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return geodesic(a, b).km
@@ -45,10 +43,7 @@ def normalize(values: List[float]) -> List[float]:
 # ---------------------------
 async def match_exporter_using_city(
     db: Prisma,
-    exporter_address: str,
-    exporter_city: str,
-    exporter_lat: Optional[float] = None,
-    exporter_lng: Optional[float] = None,
+    pincode: float,
     *,
     distance_weight: float = 0.7,
     availability_weight: float = 0.3,
@@ -71,24 +66,13 @@ async def match_exporter_using_city(
       "raw_avail"  # 1..0 availability raw
     }
     """
-    # 1) obtain exporter coordinates (prefer provided lat/lng)
-    exporter_coords = None
-    if exporter_lat is not None and exporter_lng is not None:
-        exporter_coords = (exporter_lat, exporter_lng)
-    else:
-        exporter_coords = geocode_cache(exporter_address)
-        if exporter_coords is None:
-            raise ValueError("Unable to geocode exporter address; provide lat/lng or valid address")
+    exporter_lat, exporter_lng = pin_to_lat_lon(pincode)
 
     # 2) fetch QA profiles in same city (address contains city, case-insensitive)
     # Adjust the model accessor if your generated client differs (e.g., db.qa_profile)
-    qa_profiles = await db.qAProfile.find_many(
+    qa_profiles = await db.QAProfile.find_many(
         where={
             "active": True,
-            "address": {
-                "contains": exporter_city,
-                "mode": "insensitive"
-            }
         },
         include={"user": True}
     )
@@ -102,20 +86,32 @@ async def match_exporter_using_city(
     avail_for_norm = []
     raw_entries = []
 
-    for p in qa_profiles:
-        # p may have lat/lng fields (named according to your prisma model, e.g., lat, lng)
-        coords = None
-        if getattr(p, "lat", None) is not None and getattr(p, "lng", None) is not None:
-            coords = (float(p.lat), float(p.lng))
+    distance = {}
+    for qa in qa_profiles:
+        coords = pin_to_lat_lon(qa.pincode)
+        if coords is None: 
+            dis = None
+        else: 
+            dis = distance_km_from_coords((exporter_lat, exporter_lng), coords)
+            distance.update({qa.id: dis})
+    sorted_dis = dict(sorted(distance.items(), key=lambda item: item[1]))
+    top = dict(list(sorted_dis.items())[:10])
+    for q in qa_profiles:
+        if q.id in top:
+            continue
         else:
-            coords = geocode_cache(p.address)
+            qa_profiles.remove(q)
+
+
+    for p in qa_profiles:
+        coords = pin_to_lat_lon(pincode)
 
         if coords is None:
             # mark as very far; we'll convert to a large finite value for normalization later
             distance_km = None
             distances_for_norm.append(float("inf"))
         else:
-            distance_km = distance_km_from_coords(exporter_coords, coords)
+            distance_km = distance_km_from_coords((exporter_lat, exporter_lng), coords)
             distances_for_norm.append(distance_km)
 
         raw_avail = availability_score(p.currentLoad if hasattr(p, "currentLoad") else p.current_load,
@@ -124,7 +120,6 @@ async def match_exporter_using_city(
 
         raw_entries.append({
             "profile": p,
-            "user": p.user,
             "distance_km": distance_km,
             "raw_avail": raw_avail
         })
