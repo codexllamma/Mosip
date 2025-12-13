@@ -44,6 +44,7 @@ def normalize(values: List[float]) -> List[float]:
 async def match_exporter_using_city(
     db: Prisma,
     pincode: float,
+    test_to_be_done: list,
     *,
     distance_weight: float = 0.7,
     availability_weight: float = 0.3,
@@ -76,31 +77,34 @@ async def match_exporter_using_city(
         },
         include={"user": True}
     )
+    for p in qa_profiles:
+        if set(test_to_be_done).issubset(set(p.testsAvailable)):
+            continue
+        else:
+            qa_profiles.remove(p)   
 
-    if not qa_profiles:
-        return {"best": None, "candidates": [], "all_scored": []}
-
+    if qa_profiles.size() >10:
+        distance = {}
+        for qa in qa_profiles:
+            coords = pin_to_lat_lon(qa.pincode)
+            if coords is None: 
+                dis = None
+            else: 
+                dis = distance_km_from_coords((exporter_lat, exporter_lng), coords)
+                distance.update({qa.id: dis})
+        sorted_dis = dict(sorted(distance.items(), key=lambda item: item[1]))
+        top = dict(list(sorted_dis.items())[:10])
+        for q in qa_profiles:
+            if q.id in top:
+                continue
+            else:
+                qa_profiles.remove(q)
     # 3) compute distance and availability for each QA
     scored = []
     distances_for_norm = []
     avail_for_norm = []
     raw_entries = []
-
-    distance = {}
-    for qa in qa_profiles:
-        coords = pin_to_lat_lon(qa.pincode)
-        if coords is None: 
-            dis = None
-        else: 
-            dis = distance_km_from_coords((exporter_lat, exporter_lng), coords)
-            distance.update({qa.id: dis})
-    sorted_dis = dict(sorted(distance.items(), key=lambda item: item[1]))
-    top = dict(list(sorted_dis.items())[:10])
-    for q in qa_profiles:
-        if q.id in top:
-            continue
-        else:
-            qa_profiles.remove(q)
+    
 
 
     for p in qa_profiles:
