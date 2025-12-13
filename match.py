@@ -14,7 +14,7 @@ def pin_to_lat_lon(pincode):
     geolocator = Nominatim(user_agent="my_python_app_name")
     location = geolocator.geocode({'postalcode': pincode, 'country': 'India'})
     if location:
-        return location.latitude, location.longitute
+        return location.latitude, location.longitude
     return None, None
 
 @functools.lru_cache(maxsize=2048)
@@ -71,19 +71,16 @@ async def match_exporter_using_city(
 
     # 2) fetch QA profiles in same city (address contains city, case-insensitive)
     # Adjust the model accessor if your generated client differs (e.g., db.qa_profile)
-    qa_profiles = await db.QAProfile.find_many(
+    qa_profiles = await db.qaprofile.find_many(
         where={
             "active": True,
         },
-        include={"user": True}
+        include={"User": True}
     )
-    for p in qa_profiles:
-        if set(test_to_be_done).issubset(set(p.testsAvailable)):
-            continue
-        else:
-            qa_profiles.remove(p)   
+    qa_profiles = [ p for p in qa_profiles if set(test_to_be_done).issubset(set(p.testsAvailable))]
 
-    if qa_profiles.size() >10:
+
+    if len(qa_profiles) >10:
         distance = {}
         for qa in qa_profiles:
             coords = pin_to_lat_lon(qa.pincode)
@@ -94,11 +91,8 @@ async def match_exporter_using_city(
                 distance.update({qa.id: dis})
         sorted_dis = dict(sorted(distance.items(), key=lambda item: item[1]))
         top = dict(list(sorted_dis.items())[:10])
-        for q in qa_profiles:
-            if q.id in top:
-                continue
-            else:
-                qa_profiles.remove(q)
+        top_ids = set(top.keys())
+        qa_profiles = [ p for p in qa_profiles if p.id in top_ids]
     # 3) compute distance and availability for each QA
     scored = []
     distances_for_norm = []
@@ -151,8 +145,8 @@ async def match_exporter_using_city(
 
         scored.append({
             "qa_profile_id": entry["profile"].id,
-            "qa_user_id": entry["user"].id,
-            "qa_name": entry["user"].name,
+            "qa_user_id": entry["profile"].userId,
+            "qa_name": entry["profile"].userId,
             "distance_km": d_raw,
             "raw_availability": a_raw,
             "availability_norm": a_n,

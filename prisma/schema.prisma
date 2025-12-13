@@ -14,15 +14,19 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  password     String?
-  role         UserRole @default(EXPORTER)
-  organization String?
-  did          String?  @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  id                                    String       @id @default(uuid())
+  email                                 String       @unique
+  name                                  String
+  password                              String?
+  role                                  UserRole     @default(EXPORTER)
+  organization                          String?
+  did                                   String?      @unique
+  createdAt                             DateTime     @default(now())
+  updatedAt                             DateTime     @default(now()) @updatedAt
+  Batch_Batch_assignedInspectorIdToUser Batch[]      @relation("Batch_assignedInspectorIdToUser")
+  Batch_Batch_exporterIdToUser          Batch[]      @relation("Batch_exporterIdToUser")
+  Inspection                            Inspection[]
+  QAProfile                             QAProfile?
 }
 
 model QAProfile {
@@ -34,6 +38,7 @@ model QAProfile {
   active         Boolean @default(true)
   pinCode        Int
   testsAvailable Json
+  User           User    @relation(fields: [userId], references: [id])
 }
 
 model Exporter {
@@ -54,28 +59,31 @@ model ProcessingUnit {
 }
 
 model Batch {
-  id                  String      @id @default(uuid())
-  batchNumber         String      @unique
-  cropType            String
-  variety             String?     @default("Grade A")
-  quantity            Float
-  unit                String
-  location            String
-  pinCode             BigInt      @default(400092)
-  harvestDate         DateTime
-  destinationCountry  String
-  status              BatchStatus @default(PENDING)
-  traceabilityCode    String?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  exporterId          String
-  assignedInspectorId String?
+  id                                   String       @id @default(uuid())
+  batchNumber                          String       @unique
+  cropType                             String
+  variety                              String?      @default("Grade A")
+  quantity                             Float
+  unit                                 String
+  location                             String
+  pinCode                              Int          @default(400092)
+  harvestDate                          DateTime
+  destinationCountry                   String
+  status                               BatchStatus  @default(PENDING)
+  traceabilityCode                     String?
+  createdAt                            DateTime     @default(now())
+  updatedAt                            DateTime     @updatedAt
+  exporterId                           String
+  assignedInspectorId                  String?
+  tests                                String[]     @default(["organic"])
+  User_Batch_assignedInspectorIdToUser User?        @relation("Batch_assignedInspectorIdToUser", fields: [assignedInspectorId], references: [id])
+  User_Batch_exporterIdToUser          User         @relation("Batch_exporterIdToUser", fields: [exporterId], references: [id])
+  Certificate                          Certificate?
+  Inspection                           Inspection?
 }
 
 model Inspection {
   id               String   @id @default(uuid())
-  batchId          String
-  inspectorId      String
   moisture         String
   pesticideResidue String
   organic          Boolean
@@ -84,29 +92,36 @@ model Inspection {
   isoCode          String?
   notes            String?
   inspectedAt      DateTime @default(now())
+  batchId          String   @unique
+  inspectorId      String
+  Batch            Batch    @relation(fields: [batchId], references: [id])
+  User             User     @relation(fields: [inspectorId], references: [id])
 }
 
 model Certificate {
-  id           String   @id @default(uuid())
-  batchId      String
-  batchNumber  String
-  productType  String
-  exporterName String
-  qaAgencyName String
-  issuedAt     DateTime
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
+  id                   String                @id @default(uuid())
+  batchNumber          String
+  productType          String
+  exporterName         String
+  qaAgencyName         String
+  issuedAt             DateTime
+  expiresAt            DateTime
+  createdAt            DateTime              @default(now())
+  batchId              String                @unique
+  Batch                Batch                 @relation(fields: [batchId], references: [id])
+  VerifiableCredential VerifiableCredential?
 }
 
 model VerifiableCredential {
-  id            String   @id @default(uuid())
-  certificateId String
+  id            String      @id @default(uuid())
   vcJson        Json
   issuerDid     String
   subjectDid    String
   signature     String
   verifyUrl     String
-  createdAt     DateTime @default(now())
+  createdAt     DateTime    @default(now())
+  certificateId String      @unique
+  Certificate   Certificate @relation(fields: [certificateId], references: [id])
 }
 
 model AuditLog {
