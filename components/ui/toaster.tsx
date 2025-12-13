@@ -1,6 +1,6 @@
 'use client';
 
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // This will work now
 import {
   Toast,
   ToastClose,
@@ -15,7 +15,8 @@ export function Toaster() {
 
   return (
     <ToastProvider>
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+      {/* Added explicit ': any' to props to stop the implicit any errors */}
+      {toasts.map(function ({ id, title, description, action, ...props }: any) {
         return (
           <Toast key={id} {...props}>
             <div className="grid gap-1">
