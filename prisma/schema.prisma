@@ -168,7 +168,7 @@ model AuditLog {
 }
 
 enum BatchStatus {
-  PENDING
+  SUBMITTED
   IN_PROGRESS
   APPROVED
   REJECTED
