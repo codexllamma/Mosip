@@ -7,7 +7,8 @@ import { Layout } from "@/components/Layout";
 import { Dashboard } from '@/components/Dashboard';
 import { BatchSubmission } from '@/components/BatchSubmission';
 import { InspectionRequests } from '@/components/InspectionRequests';
-import { DigitalPassports } from '@/components/DigitalPassports';
+import DigitalPassports from '@/components/DigitalPassports';
+
 import { AuditLogs } from '@/components/AuditLogs';
 
 // --- 1. THE LOGIN COMPONENT (Landing View) ---
