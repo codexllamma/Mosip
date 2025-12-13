@@ -1,10 +1,7 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
-}
-
-generator pyclient {
-  provider             = "prisma-client-py"
-  recursive_type_depth = "5"
 }
 
 datasource db {
@@ -13,20 +10,23 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// --- USER & AUTH ---
 model User {
-  id                                    String       @id @default(uuid())
-  email                                 String       @unique
-  name                                  String
-  password                              String?
-  role                                  UserRole     @default(EXPORTER)
-  organization                          String?
-  did                                   String?      @unique
-  createdAt                             DateTime     @default(now())
-  updatedAt                             DateTime     @default(now()) @updatedAt
-  Batch_Batch_assignedInspectorIdToUser Batch[]      @relation("Batch_assignedInspectorIdToUser")
-  Batch_Batch_exporterIdToUser          Batch[]      @relation("Batch_exporterIdToUser")
-  Inspection                            Inspection[]
-  QAProfile                             QAProfile?
+  id              String   @id @default(uuid())
+  email           String   @unique
+  name            String
+  password        String?
+  role            UserRole @default(EXPORTER)
+  organization    String?
+  did             String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  // Relations
+  assignedBatches Batch[]      @relation("AssignedInspector")
+  exportedBatches Batch[]      @relation("BatchExporter")
+  inspections     Inspection[]
+  qaProfile       QAProfile?
 }
 
 model QAProfile {
@@ -38,9 +38,10 @@ model QAProfile {
   active         Boolean @default(true)
   pinCode        Int
   testsAvailable Json
-  User           User    @relation(fields: [userId], references: [id])
+  user           User    @relation(fields: [userId], references: [id])
 }
 
+// --- EXPORTER DETAILS ---
 model Exporter {
   iecNum   BigInt @id @unique
   address  String
@@ -58,28 +59,33 @@ model ProcessingUnit {
   fssaiNumber BigInt
 }
 
+// --- CORE SUPPLY CHAIN ---
+
 model Batch {
-  id                                   String       @id @default(uuid())
-  batchNumber                          String       @unique
-  cropType                             String
-  variety                              String?      @default("Grade A")
-  quantity                             Float
-  unit                                 String
-  location                             String
-  pinCode                              Int          @default(400092)
-  harvestDate                          DateTime
-  destinationCountry                   String
-  status                               BatchStatus  @default(PENDING)
-  traceabilityCode                     String?
-  createdAt                            DateTime     @default(now())
-  updatedAt                            DateTime     @updatedAt
-  exporterId                           String
-  assignedInspectorId                  String?
-  tests                                String[]     @default(["organic"])
-  User_Batch_assignedInspectorIdToUser User?        @relation("Batch_assignedInspectorIdToUser", fields: [assignedInspectorId], references: [id])
-  User_Batch_exporterIdToUser          User         @relation("Batch_exporterIdToUser", fields: [exporterId], references: [id])
-  Certificate                          Certificate?
-  Inspection                           Inspection?
+  id                  String      @id @default(uuid())
+  batchNumber         String      @unique
+  cropType            String
+  variety             String?     @default("Grade A")
+  quantity            Float
+  unit                String
+  location            String
+  pinCode             Int       @default(400092)
+  harvestDate         DateTime
+  destinationCountry  String
+  status              BatchStatus @default(PENDING)
+  traceabilityCode    String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relations
+  exporterId          String
+  exporter            User        @relation("BatchExporter", fields: [exporterId], references: [id])
+  
+  assignedInspectorId String?
+  assignedInspector   User?       @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
+  
+  inspection          Inspection?
+  certificate         Certificate?
 }
 
 model Inspection {
@@ -92,36 +98,46 @@ model Inspection {
   isoCode          String?
   notes            String?
   inspectedAt      DateTime @default(now())
+
+  // Relations
   batchId          String   @unique
+  batch            Batch    @relation(fields: [batchId], references: [id])
+  
   inspectorId      String
-  Batch            Batch    @relation(fields: [batchId], references: [id])
-  User             User     @relation(fields: [inspectorId], references: [id])
+  inspector        User     @relation(fields: [inspectorId], references: [id])
 }
 
+// --- CREDENTIALS ---
+
 model Certificate {
-  id                   String                @id @default(uuid())
-  batchNumber          String
-  productType          String
-  exporterName         String
-  qaAgencyName         String
-  issuedAt             DateTime
-  expiresAt            DateTime
-  createdAt            DateTime              @default(now())
-  batchId              String                @unique
-  Batch                Batch                 @relation(fields: [batchId], references: [id])
-  VerifiableCredential VerifiableCredential?
+  id            String   @id @default(uuid())
+  batchNumber   String
+  productType   String
+  exporterName  String
+  qaAgencyName  String
+  issuedAt      DateTime
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  // Relations
+  batchId       String   @unique
+  batch         Batch    @relation(fields: [batchId], references: [id])
+  
+  vc            VerifiableCredential?
 }
 
 model VerifiableCredential {
-  id            String      @id @default(uuid())
+  id            String   @id @default(uuid())
   vcJson        Json
   issuerDid     String
   subjectDid    String
   signature     String
   verifyUrl     String
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime @default(now())
+
+  // Relations
   certificateId String      @unique
-  Certificate   Certificate @relation(fields: [certificateId], references: [id])
+  certificate   Certificate @relation(fields: [certificateId], references: [id])
 }
 
 model AuditLog {
@@ -134,6 +150,7 @@ model AuditLog {
   createdAt  DateTime @default(now())
 }
 
+// --- ENUMS ---
 enum UserRole {
   EXPORTER
   QA_AGENCY

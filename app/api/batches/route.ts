@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         quantity: parseFloat(quantity),
         unit: unit || 'kg',
         variety: variety || 'Grade A',
-        pinCode: BigInt(pinCode),
+        pinCode: parseInt(pinCode),
         status: 'PENDING',
         exporter: { connect: { id: exporter.id } }
       }
