@@ -1,12 +1,136 @@
-
 generator client {
   provider = "prisma-client-js"
+}
+
+generator pyclient {
+  provider             = "prisma-client-py"
+  recursive_type_depth = "5"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  name            String
+  createdAt       DateTime     @default(now())
+  did             String?      @unique
+  organization    String?
+  role            UserRole     @default(EXPORTER)
+  password        String?
+  auditLogs       AuditLog[]
+  assignedBatches Batch[]      @relation("AssignedInspector")
+  exportedBatches Batch[]      @relation("BatchExporter")
+  inspections     Inspection[]
+  qaProfile       QAProfile?
+}
+
+model QAProfile {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  address        String
+  maxCapacity    Int     @default(100)
+  currentLoad    Int     @default(0)
+  active         Boolean @default(true)
+  pinCode        Int
+  testsAvailable Json
+  user           User    @relation(fields: [userId], references: [id])
+}
+
+model Batch {
+  id                  String       @id @default(uuid())
+  batchNumber         String       @unique
+  exporterId          String
+  cropType            String
+  quantity            Float
+  unit                String
+  location            String
+  harvestDate         DateTime
+  destinationCountry  String
+  status              BatchStatus  @default(PENDING)
+  updatedAt           DateTime     @updatedAt
+  traceabilityCode    String?
+  variety             String       @default("Grade A")
+  pinCode             BigInt       @default(400092)
+  assignedInspectorId String?
+  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
+  exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
+  certificate         Certificate?
+  inspection          Inspection?
+}
+
+model Inspection {
+  id               String   @id @default(uuid())
+  batchId          String   @unique
+  inspectorId      String
+  moisture         String
+  pesticideResidue String
+  organic          Boolean
+  heavyMetals      String?
+  isoCode          String?
+  grade            String?
+  notes            String?
+  inspectedAt      DateTime @default(now())
+  batch            Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inspector        User     @relation(fields: [inspectorId], references: [id])
+}
+
+model Certificate {
+  id           String                @id @default(uuid())
+  batchId      String                @unique
+  batchNumber  String
+  productType  String
+  exporterName String
+  qaAgencyName String
+  issuedAt     DateTime
+  expiresAt    DateTime
+  createdAt    DateTime              @default(now())
+  batch        Batch                 @relation(fields: [batchId], references: [id])
+  vc           VerifiableCredential?
+}
+
+model VerifiableCredential {
+  id            String      @id @default(uuid())
+  certificateId String      @unique
+  vcJson        Json
+  issuerDid     String
+  subjectDid    String
+  signature     String
+  verifyUrl     String
+  createdAt     DateTime    @default(now())
+  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  action     String
+  entityType String
+  entityId   String
+  actorId    String?
+  details    Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+}
+
+model exporter {
+  iecNum   BigInt @id @unique @default(autoincrement())
+  address  String
+  city     String
+  phoneNum BigInt
+  country  String
+  panNum   String
+  gstNum   String
+}
+
+model ProcessingUnit {
+  id          String @id
+  name        String
+  address     String
+  fssaiNumber BigInt
 }
 
 enum UserRole {
@@ -22,111 +146,4 @@ enum BatchStatus {
   APPROVED
   REJECTED
   CERTIFIED
-}
-
-model User {
-  id           String       @id @default(uuid())
-  email        String       @unique
-  name         String
-  role         UserRole     @default(EXPORTER)
-  did          String?      @unique 
-  organization String?
-  
-  batches      Batch[]
-  inspections  Inspection[]
-  auditLogs    AuditLog[]
-  
-  createdAt    DateTime     @default(now())
-}
-
-model Batch {
-  id                 String      @id @default(uuid())
-  batchNumber        String      @unique
-  exporterId         String
-  exporter           User        @relation(fields: [exporterId], references: [id])
-  
-  cropType           String
-  quantity           Float
-  unit               String
-  location           String
-  harvestDate        DateTime
-  destinationCountry String
-  
-  // Storing simple arrays of strings for URLs
-  labReports         String[]
-  farmPhotos         String[]
-  
-  status             BatchStatus @default(PENDING)
-  
-  inspection         Inspection?
-  certificate        Certificate?
-
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-}
-
-
-model Inspection {
-  id               String   @id @default(uuid())
-  batchId          String   @unique
-  batch            Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  
-  inspectorId      String
-  inspector        User     @relation(fields: [inspectorId], references: [id])
-
-  moisture         String   
-  pesticideResidue String   
-  organic          Boolean
-  heavyMetals      String?
-  isoCode          String?
-  grade            String?
-  notes            String?
-
-  inspectedAt      DateTime @default(now())
-}
-
-model Certificate {
-  id              String   @id @default(uuid())
-  batchId         String   @unique
-  batch           Batch    @relation(fields: [batchId], references: [id])
-
-
-  batchNumber     String
-  productType     String
-  exporterName    String
-  qaAgencyName    String
-  
-  issuedAt        DateTime
-  expiresAt       DateTime
-
-  vc              VerifiableCredential?
-
-  createdAt       DateTime @default(now())
-
-}
-
-model VerifiableCredential {
-  id            String      @id @default(uuid())
-  certificateId String      @unique
-  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
-
-  vcJson        Json        // Stores the FULL JSON structure you provided
-  
-  issuerDid     String
-  subjectDid    String
-  signature     String
-  verifyUrl     String      // localhost:3000/verify/...
-
-  createdAt     DateTime    @default(now())
-}
-
-model AuditLog {
-  id          String   @id @default(uuid())
-  action      String
-  entityType  String
-  entityId    String
-  actorId     String?
-  actor       User?    @relation(fields: [actorId], references: [id])
-  details     Json?
-  createdAt   DateTime @default(now())
 }
