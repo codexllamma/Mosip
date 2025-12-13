@@ -81,7 +81,7 @@ model Batch {
   pinCode             Int       @default(400092)
   harvestDate         DateTime
   destinationCountry  String
-  status              BatchStatus @default(PENDING)
+  status              BatchStatus @default(SUBMITTED)
   traceabilityCode    String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
@@ -168,7 +168,7 @@ model AuditLog {
 }
 
 enum BatchStatus {
-  SUBMITTED
+  PENDING
   IN_PROGRESS
   APPROVED
   REJECTED
