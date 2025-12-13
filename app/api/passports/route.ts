@@ -11,7 +11,7 @@ export async function GET() {
         vc: true,
         batch: {
           include: {
-            exporter: true,    // Match schema relation name
+            exporter: true,
             inspection: true
           }
         }
@@ -20,8 +20,21 @@ export async function GET() {
     });
 
     const formatted = certificates.map(c => {
-      const vc = c.vc?.vcJson || {};
-      const subject = vc.credentialSubject || {};
+      // 1. Safe parsing of vcJson
+      let vcData: any = c.vc?.vcJson || {};
+
+      // If it's stored as a string (which your logs suggest), parse it
+      if (typeof vcData === 'string') {
+        try {
+          vcData = JSON.parse(vcData);
+        } catch (e) {
+          console.error("Failed to parse vcJson", e);
+          vcData = {};
+        }
+      }
+
+      // 2. Safely access properties using optional chaining on the 'any' type
+      const subject = vcData.credentialSubject || {};
       const quality = subject.quality || {};
       const inspection = c.batch?.inspection;
 
@@ -35,7 +48,7 @@ export async function GET() {
         verification_url: c.vc?.verifyUrl || "",
         
         credential_data: {
-          issuer: vc.issuer || {
+          issuer: vcData.issuer || {
             id: c.vc?.issuerDid,
             name: c.qaAgencyName
           },
@@ -43,6 +56,7 @@ export async function GET() {
             batchNumber: c.batchNumber,
             productType: c.productType,
             exporterName: c.exporterName,
+            // Prioritize real inspection data, fallback to VC data, fallback to defaults
             quality: inspection ? {
               moisture: inspection.moisture,
               pesticide: inspection.pesticideResidue,
