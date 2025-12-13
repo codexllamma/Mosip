@@ -17,12 +17,12 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
-  password     String
+  password     String?
   role         UserRole @default(EXPORTER)
   organization String?
   did          String?  @unique
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 }
 
 model QAProfile {
@@ -36,11 +36,28 @@ model QAProfile {
   testsAvailable Json
 }
 
+model Exporter {
+  iecNum   BigInt @id @unique
+  address  String
+  city     String
+  phoneNum BigInt
+  country  String
+  panNum   String
+  gstNum   String
+}
+
+model ProcessingUnit {
+  id          String @id @default(uuid())
+  name        String
+  address     String
+  fssaiNumber BigInt
+}
+
 model Batch {
   id                  String      @id @default(uuid())
   batchNumber         String      @unique
   cropType            String
-  variety             String      @default("Grade A")
+  variety             String?     @default("Grade A")
   quantity            Float
   unit                String
   location            String
@@ -100,23 +117,6 @@ model AuditLog {
   actorId    String?
   details    Json?
   createdAt  DateTime @default(now())
-}
-
-model ProcessingUnit {
-  id          String @id
-  name        String
-  address     String
-  fssaiNumber BigInt
-}
-
-model Exporter {
-  iecNum   BigInt @id @unique
-  address  String
-  city     String
-  phoneNum BigInt
-  country  String
-  panNum   String
-  gstNum   String
 }
 
 enum UserRole {
