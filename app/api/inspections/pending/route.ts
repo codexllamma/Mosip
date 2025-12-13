@@ -1,8 +1,8 @@
+// app/api/inspections/pending/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { Batch } from "@/types";
 
-export const dynamic = 'force-dynamic'; // Ensure it doesn't cache statically
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -13,14 +13,14 @@ export async function GET() {
         }
       },
       include: {
-        exporter: true // Include exporter details
+        exporter: true  // Match schema relation name
       },
       orderBy: {
-        createdAt: 'desc'
+        updatedAt: 'desc'
       }
     });
 
-    // Map Prisma Data (camelCase) to Frontend Interface (snake_case)
+    // Map Prisma Data to Frontend Interface
     const formattedBatches = batches.map(batch => ({
       id: batch.id,
       batch_number: batch.batchNumber,
@@ -30,15 +30,19 @@ export async function GET() {
       location: batch.location,
       destination_country: batch.destinationCountry,
       harvest_date: batch.harvestDate,
-      submitted_at: batch.createdAt,
-      status: batch.status.toLowerCase(), // 'PENDING' -> 'pending'
-      lab_reports: batch.labReports,
-      farm_photos: batch.farmPhotos
+      submitted_at: batch.updatedAt,  // Using updatedAt since createdAt isn't in schema
+      status: batch.status.toLowerCase(),
+      variety: batch.variety,
+      unit: batch.unit,
+      // Note: labReports and farmPhotos don't exist in your schema
+      lab_reports: [],
+      farm_photos: []
     }));
 
     return NextResponse.json(formattedBatches);
 
   } catch (error: any) {
+    console.error("Pending Inspections Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

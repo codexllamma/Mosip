@@ -2,65 +2,52 @@ generator client {
   provider = "prisma-client-js"
 }
 
-generator pyclient {
-  provider             = "prisma-client-py"
-  recursive_type_depth = "5"
-}
-
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id              String       @id @default(uuid())
-  email           String       @unique
-  name            String
-  createdAt       DateTime     @default(now())
-  did             String?      @unique
-  organization    String?
-  role            UserRole     @default(EXPORTER)
-  password        String?
-  auditLogs       AuditLog[]
-  assignedBatches Batch[]      @relation("AssignedInspector")
-  exportedBatches Batch[]      @relation("BatchExporter")
-  inspections     Inspection[]
-  qaProfile       QAProfile?
-}
-
-model QAProfile {
-  id             String  @id @default(uuid())
-  userId         String  @unique
-  address        String
-  maxCapacity    Int     @default(100)
-  currentLoad    Int     @default(0)
-  active         Boolean @default(true)
-  pinCode        Int
-  testsAvailable Json
-  user           User    @relation(fields: [userId], references: [id])
+  id                                    String       @id @default(uuid())
+  email                                 String       @unique
+  name                                  String
+  createdAt                             DateTime     @default(now())
+  did                                   String?      @unique
+  organization                          String?
+  role                                  UserRole     @default(EXPORTER)
+  password                              String?
+  auditLogs                             AuditLog[]
+  Batch_Batch_assignedInspectorIdToUser Batch[]      @relation("Batch_assignedInspectorIdToUser")
+  batches                               Batch[]
+  inspections                           Inspection[]
+  QAProfile                             QAProfile?
 }
 
 model Batch {
-  id                  String       @id @default(uuid())
-  batchNumber         String       @unique
-  exporterId          String
-  cropType            String
-  quantity            Float
-  unit                String
-  location            String
-  harvestDate         DateTime
-  destinationCountry  String
-  status              BatchStatus  @default(PENDING)
-  updatedAt           DateTime     @updatedAt
-  traceabilityCode    String?
-  variety             String       @default("Grade A")
-  pinCode             BigInt       @default(400092)
-  assignedInspectorId String?
-  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
-  exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
-  certificate         Certificate?
-  inspection          Inspection?
+  id                                   String       @id @default(uuid())
+  batchNumber                          String       @unique
+  exporterId                           String
+  cropType                             String
+  quantity                             Float
+  unit                                 String
+  location                             String
+  harvestDate                          DateTime
+  destinationCountry                   String
+  status                               BatchStatus  @default(PENDING)
+  updatedAt                            DateTime     @updatedAt
+  traceabilityCode                     String?
+  variety                              String       @default("Grade A")
+  pinCode                              BigInt       @default(400092)
+  assignedInspectorId                  String?
+  
+  // Add origin and destination fields for VC
+  origin                               String?      // e.g., "Punjab, India"
+  destination                          String?      // e.g., "Dubai, UAE"
+  
+  User_Batch_assignedInspectorIdToUser User?        @relation("Batch_assignedInspectorIdToUser", fields: [assignedInspectorId], references: [id])
+  exporter                             User         @relation(fields: [exporterId], references: [id])
+  certificate                          Certificate?
+  inspection                           Inspection?
 }
 
 model Inspection {
@@ -89,20 +76,64 @@ model Certificate {
   issuedAt     DateTime
   expiresAt    DateTime
   createdAt    DateTime              @default(now())
+  
+  // ====================================
+  // INJI CERTIFY INTEGRATION FIELDS
+  // ====================================
+  
+  // Core Inji Certify references
+  credentialId    String?              // UUID from Inji Certify API
+  credentialUrl   String?              // URL to download the VC from Inji
+  
+  // QR Codes for end users
+  walletQrCode    String?              // QR code for Inji Wallet import (base64)
+  verifyQrCode    String?              // QR code for Inji Verify (base64)
+  
+  // Verification URL
+  verifyUrl       String?              // Inji Verify URL for this credential
+  
+  // Optional: Store credential status
+  revoked         Boolean              @default(false)
+  revokedAt       DateTime?
+  revocationReason String?
+  
   batch        Batch                 @relation(fields: [batchId], references: [id])
   vc           VerifiableCredential?
+  
+  @@index([credentialId])
+  @@index([issuedAt])
 }
 
 model VerifiableCredential {
   id            String      @id @default(uuid())
   certificateId String      @unique
-  vcJson        Json
-  issuerDid     String
-  subjectDid    String
-  signature     String
-  verifyUrl     String
+  
+  // ====================================
+  // UPDATED FOR INJI INTEGRATION
+  // ====================================
+  
+  // Core VC metadata
+  issuerDid     String      // QA Agency DID (issuer)
+  subjectDid    String?     // Exporter DID (holder) - optional
+  
+  // Cryptographic proof (optional - stored for reference)
+  signature     String?     // Digital signature or proof JWS
+  proofType     String?     // e.g., "Ed25519Signature2020"
+  
+  // Legacy field - can be removed after migration
+  vcJson        Json?       // Full VC JSON (deprecated - use Inji URLs instead)
+  
+  // Verification
+  verifyUrl     String?     // Inji Verify URL
+  
+  // Timestamps
   createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
   certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  
+  @@index([issuerDid])
+  @@index([subjectDid])
 }
 
 model AuditLog {
@@ -114,6 +145,29 @@ model AuditLog {
   details    Json?
   createdAt  DateTime @default(now())
   actor      User?    @relation(fields: [actorId], references: [id])
+  
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model ProcessingUnit {
+  id          String @id
+  name        String
+  address     String
+  fssaiNumber BigInt
+}
+
+model QAProfile {
+  id             String  @id
+  userId         String  @unique
+  address        String
+  maxCapacity    Int     @default(100)
+  currentLoad    Int     @default(0)
+  active         Boolean @default(true)
+  pinCode        Int
+  testsAvailable Json
+  User           User    @relation(fields: [userId], references: [id])
 }
 
 model exporter {
@@ -124,13 +178,6 @@ model exporter {
   country  String
   panNum   String
   gstNum   String
-}
-
-model ProcessingUnit {
-  id          String @id
-  name        String
-  address     String
-  fssaiNumber BigInt
 }
 
 enum UserRole {

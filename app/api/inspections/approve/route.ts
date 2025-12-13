@@ -1,5 +1,7 @@
+// app/api/inspections/approve/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { injiCertify } from "@/lib/inji-certify";
 import QRCode from "qrcode";
 
 export async function POST(req: NextRequest) {
@@ -7,11 +9,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { batchId, moisture, pesticide, organic, grade, notes } = body;
 
-    const BASE_URL = "http://localhost:3000";
+    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-    // ----------------------------
     // 1. Ensure QA inspector exists
-    // ----------------------------
     let inspector = await prisma.user.findFirst({
       where: { role: "QA_AGENCY" }
     });
@@ -22,30 +22,102 @@ export async function POST(req: NextRequest) {
           email: "inspector@apeda.gov.in",
           name: "QA Inspector",
           role: "QA_AGENCY",
-          organization: "APEDA Quality Assurance"
+          organization: "APEDA Quality Assurance",
+          did: process.env.QA_AGENCY_DID || "did:web:apeda.gov.in:qa"
         }
       });
     }
 
-    // ----------------------------
-    // 2. Get batch + exporter
-    // ----------------------------
+    // 2. Get batch + exporter (using correct relation name)
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
-      include: { exporter: true }
+      include: { 
+        exporter: true  // This matches your schema relation name
+      }
     });
 
     if (!batch) {
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }
 
-    // ----------------------------
-    // 3. FULL TRANSACTION
-    // ----------------------------
+    // 3. Issue VC via Inji Certify
+    let vcResponse;
+    let vcPayload;
+    
+    try {
+      vcResponse = await injiCertify.issueCredential({
+        credentialSubject: {
+          id: batch.exporter.did || undefined,
+          batchNumber: batch.batchNumber,
+          productType: batch.cropType,
+          exporterName: batch.exporter.name,
+          exporterOrganization: batch.exporter.organization || undefined,
+          origin: batch.location,
+          destination: batch.destinationCountry,
+          quantity: batch.quantity,
+          unit: batch.unit,
+          qualityMetrics: {
+            moisture: moisture.toString(),
+            pesticideResidue: pesticide.toString(),
+            organic: Boolean(organic),
+            grade: grade
+          },
+          inspectionDate: new Date().toISOString(),
+          inspector: {
+            name: inspector.name,
+            organization: inspector.organization || "QA Agency"
+          }
+        },
+        issuer: {
+          id: inspector.did || process.env.QA_AGENCY_DID || "did:web:apeda.gov.in:qa",
+          name: inspector.organization || "APEDA Quality Assurance"
+        },
+        type: ["VerifiableCredential", "FoodExportQualityCertificate"],
+        expirationDate: new Date(
+          new Date().setFullYear(new Date().getFullYear() + 1)
+        ).toISOString()
+      });
+
+      vcPayload = vcResponse.credential;
+    } catch (vcError: any) {
+      console.error("Inji Certify issuance failed:", vcError);
+      
+      // Fallback: Create mock VC if Inji fails
+      vcPayload = {
+        "@context": ["https://www.w3.org/2018/credentials/v1"],
+        id: `urn:uuid:${batchId}`,
+        type: ["VerifiableCredential", "FoodExportQualityCertificate"],
+        issuer: {
+          id: inspector.did || "did:web:apeda.gov.in:qa",
+          name: inspector.organization || "QA Agency"
+        },
+        issuanceDate: new Date().toISOString(),
+        credentialSubject: {
+          batchId: batch.batchNumber,
+          productType: batch.cropType,
+          exporter: batch.exporter.name,
+          quality: {
+            moisture,
+            pesticide,
+            grade,
+            organic
+          }
+        }
+      };
+      
+      vcResponse = null;
+    }
+
+    // 4. Generate verification URL
+    const verifyUrl = vcResponse 
+      ? injiCertify.generateVerifyUrl(vcResponse.credentialId)
+      : `${BASE_URL}/api/verify/`;
+
+    // 5. FULL TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
       
       // A. Inspection record
-      const inspection = await tx.inspection.create({
+      await tx.inspection.create({
         data: {
           moisture: moisture.toString(),
           pesticideResidue: pesticide.toString(),
@@ -76,57 +148,49 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // D. Generate VC URL + QR
-      const verifyUrl = `${BASE_URL}api/verify/${certificate.id}`;
-      const qrCode = await QRCode.toDataURL(verifyUrl);
+      // D. Final verify URL with certificate ID
+      const finalVerifyUrl = vcResponse 
+        ? verifyUrl
+        : `${BASE_URL}/api/verify/${certificate.id}`;
+      
+      const qrCode = await QRCode.toDataURL(finalVerifyUrl);
 
-      // E. VC PAYLOAD (IMPORTANT: matches frontend format!)
-      const vcPayload = {
-        "@context": ["https://www.w3.org/2018/credentials/v1"],
-        id: `urn:uuid:${certificate.id}`,
-        type: ["VerifiableCredential", "FoodExportQualityCertificate"],
-        issuer: {
-          id: inspector.did || "did:web:example.com",
-          name: inspector.organization || "QA Agency"
-        },
-        issuanceDate: new Date().toISOString(),
-        credentialSubject: {
-          batchId: batch.batchNumber,
-          productType: batch.cropType,
-          exporter: batch.exporter.name,
-          quality: {
-            moisture,
-            pesticide,
-            grade,
-            organic
-          }
-        }
-      };
-
-      // F. Save VC
+      // E. Store VC
       await tx.verifiableCredential.create({
         data: {
           vcJson: vcPayload as any,
-          issuerDid: inspector.did || "did:temp",
-          subjectDid: batch.exporter.did || "did:temp",
-          signature: "mock-crypto-signature",
-          verifyUrl,
+          issuerDid: inspector.did || "did:web:apeda.gov.in:qa",
+          subjectDid: batch.exporter.did || "",
+          signature: vcResponse?.credential?.proof?.jws || "mock-signature",
+          verifyUrl: finalVerifyUrl,
           certificate: { connect: { id: certificate.id } }
         }
       });
 
-      // G. Audit Log (inside transaction = safe)
+      // F. Audit Log
       await tx.auditLog.create({
         data: {
           action: "ISSUED_CREDENTIAL",
           entityType: "CERTIFICATE",
           entityId: certificate.id,
           actorId: inspector.id,
-          details: { batchNumber: batch.batchNumber }
+          details: { 
+            batchNumber: batch.batchNumber,
+            credentialId: vcResponse?.credentialId || null,
+            issuer: inspector.organization,
+            injiIntegration: !!vcResponse
+          }
         }
       });
 
-      return { success: true, verifyUrl, certificateId: certificate.id };
+      return { 
+        success: true, 
+        verifyUrl: finalVerifyUrl,
+        certificateId: certificate.id,
+        credentialId: vcResponse?.credentialId || null,
+        qrCode,
+        injiEnabled: !!vcResponse
+      };
     });
 
     return NextResponse.json(result, { status: 201 });

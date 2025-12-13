@@ -1,3 +1,4 @@
+// app/api/passports/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -5,17 +6,24 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // 1. Get certificates + VC
     const certificates = await prisma.certificate.findMany({
-      include: { vc: true },
+      include: { 
+        vc: true,
+        batch: {
+          include: {
+            exporter: true,    // Match schema relation name
+            inspection: true
+          }
+        }
+      },
       orderBy: { issuedAt: "desc" }
     });
 
-    // 2. Normalize to match frontend shape
     const formatted = certificates.map(c => {
       const vc = c.vc?.vcJson || {};
       const subject = vc.credentialSubject || {};
       const quality = subject.quality || {};
+      const inspection = c.batch?.inspection;
 
       return {
         id: c.id,
@@ -23,18 +31,46 @@ export async function GET() {
         crop_type: c.productType,
         exporter_name: c.exporterName,
         issued_at: c.issuedAt,
+        expires_at: c.expiresAt,
         verification_url: c.vc?.verifyUrl || "",
+        
         credential_data: {
-          issuer: vc.issuer || {},
+          issuer: vc.issuer || {
+            id: c.vc?.issuerDid,
+            name: c.qaAgencyName
+          },
           credentialSubject: {
-            quality: {
+            batchNumber: c.batchNumber,
+            productType: c.productType,
+            exporterName: c.exporterName,
+            quality: inspection ? {
+              moisture: inspection.moisture,
+              pesticide: inspection.pesticideResidue,
+              grade: inspection.grade,
+              organic: inspection.organic
+            } : {
               moisture: quality.moisture ?? "0",
               pesticide: quality.pesticide ?? "0",
               grade: quality.grade ?? "A",
               organic: quality.organic ?? false
             }
           }
-        }
+        },
+        
+        issuer_did: c.vc?.issuerDid,
+        subject_did: c.vc?.subjectDid,
+        
+        batch_details: c.batch ? {
+          location: c.batch.location,
+          destination: c.batch.destinationCountry,
+          quantity: c.batch.quantity,
+          unit: c.batch.unit,
+          status: c.batch.status,
+          variety: c.batch.variety,
+          harvest_date: c.batch.harvestDate,
+          traceability_code: c.batch.traceabilityCode,
+          pin_code: c.batch.pinCode.toString()
+        } : null
       };
     });
 

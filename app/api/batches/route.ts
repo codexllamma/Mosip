@@ -1,3 +1,4 @@
+// app/api/batches/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db"; 
 
@@ -9,14 +10,14 @@ export async function POST(req: NextRequest) {
       destinationCountry, 
       harvestDate, 
       location, 
-      quantity, // Changed from quantityKg
-      unit,     // Added unit
+      quantity,
+      unit,
       exporterEmail = "contact@bharatexports.com",
-      labReports = [], 
-      farmPhotos = []  
+      variety = "Grade A",
+      pinCode = "400092"
     } = body;
 
-    
+    // 1. Find or create exporter
     let exporter = await prisma.user.findUnique({
       where: { email: exporterEmail } 
     });
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     // 2. Generate Batch Number
     const batchNumber = `BTH-${Date.now().toString().slice(-6)}`;
 
-    // 3. Create Batch
+    // 3. Create Batch (matching your exact schema)
     const newBatch = await prisma.batch.create({
       data: {
         batchNumber,
@@ -42,11 +43,11 @@ export async function POST(req: NextRequest) {
         destinationCountry,
         harvestDate: new Date(harvestDate),
         location,
-        quantity: parseFloat(quantity), // Ensure it's a float
+        quantity: parseFloat(quantity),
         unit: unit || 'kg',
+        variety: variety || 'Grade A',
+        pinCode: BigInt(pinCode),
         status: 'PENDING',
-        labReports: labReports, // Storing URLs
-        farmPhotos: farmPhotos, // Storing URLs
         exporter: { connect: { id: exporter.id } }
       }
     });
