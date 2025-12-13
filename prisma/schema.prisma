@@ -14,6 +14,7 @@ datasource db {
 }
 
 model User {
+<<<<<<< HEAD
   id                                    String       @id @default(uuid())
   email                                 String       @unique
   name                                  String
@@ -56,6 +57,55 @@ model ProcessingUnit {
   name        String
   address     String
   fssaiNumber BigInt
+=======
+  id              String       @id @default(uuid())
+  email           String       @unique
+  name            String
+  createdAt       DateTime     @default(now())
+  did             String?      @unique
+  organization    String?
+  role            UserRole     @default(EXPORTER)
+  password        String?
+  auditLogs       AuditLog[]
+  assignedBatches Batch[]      @relation("AssignedInspector")
+  exportedBatches Batch[]      @relation("BatchExporter")
+  inspections     Inspection[]
+  qaProfile       QAProfile?
+}
+
+model QAProfile {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  address        String
+  maxCapacity    Int     @default(100)
+  currentLoad    Int     @default(0)
+  active         Boolean @default(true)
+  pinCode        Int
+  testsAvailable Json
+  user           User    @relation(fields: [userId], references: [id])
+}
+
+model Batch {
+  id                  String       @id @default(uuid())
+  batchNumber         String       @unique
+  exporterId          String
+  cropType            String
+  quantity            Float
+  unit                String
+  location            String
+  harvestDate         DateTime
+  destinationCountry  String
+  status              BatchStatus  @default(PENDING)
+  updatedAt           DateTime     @updatedAt
+  traceabilityCode    String?
+  variety             String       @default("Grade A")
+  pinCode             BigInt       @default(400092)
+  assignedInspectorId String?
+  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
+  exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
+  certificate         Certificate?
+  inspection          Inspection?
+>>>>>>> b95e65cd6509201385620d7a44d1854ba983fdcf
 }
 
 model Inspection {
@@ -121,6 +171,7 @@ model exporter {
   gstNum   String
 }
 
+<<<<<<< HEAD
 model QAProfile {
   id          String  @id
   userId      String  @unique
@@ -135,6 +186,15 @@ model QAProfile {
 
 
 
+=======
+model ProcessingUnit {
+  id          String @id
+  name        String
+  address     String
+  fssaiNumber BigInt
+}
+
+>>>>>>> b95e65cd6509201385620d7a44d1854ba983fdcf
 enum UserRole {
   EXPORTER
   QA_AGENCY
