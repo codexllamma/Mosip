@@ -75,7 +75,7 @@ async def match_exporter_using_city(
         where={
             "active": True,
         },
-        include={"User": True}
+        include={"user": True}
     )
     qa_profiles = [ p for p in qa_profiles if set(test_to_be_done).issubset(set(p.testsAvailable))]
 

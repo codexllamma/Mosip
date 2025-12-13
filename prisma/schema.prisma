@@ -4,6 +4,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator pyclient {
+  provider             = "prisma-client-py"
+  recursive_type_depth = "5"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -27,6 +32,7 @@ model User {
   exportedBatches Batch[]      @relation("BatchExporter")
   inspections     Inspection[]
   qaProfile       QAProfile?
+  exporter        Exporter?
 }
 
 model QAProfile {
@@ -50,6 +56,8 @@ model Exporter {
   country  String
   panNum   String
   gstNum   String
+  userId   String @unique
+  user     User    @relation(fields: [userId], references: [id])
 }
 
 model ProcessingUnit {
@@ -68,6 +76,7 @@ model Batch {
   variety             String?     @default("Grade A")
   quantity            Float
   unit                String
+  tests               String[]
   location            String
   pinCode             Int       @default(400092)
   harvestDate         DateTime
@@ -151,9 +160,9 @@ model AuditLog {
 }
 
 // --- ENUMS ---
-enum UserRole {
-  EXPORTER
+  enum UserRole{
   QA_AGENCY
+  EXPORTER
   IMPORTER
   ADMIN
 }

@@ -186,7 +186,7 @@ export function BatchSubmission() {
                   required
                   value={formData.cropType}
                   onChange={(e) => handleInputChange('cropType', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 >
                   <option value="">Select crop type</option>
                   {cropTypes.map(crop => (
@@ -204,7 +204,7 @@ export function BatchSubmission() {
                   required
                   value={formData.destinationCountry}
                   onChange={(e) => handleInputChange('destinationCountry', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 >
                   <option value="">Select destination</option>
                   {countries.map(country => (
@@ -231,7 +231,7 @@ export function BatchSubmission() {
                   placeholder="e.g., Green Valley Farms, Punjab, India"
                   value={formData.location}
                   onChange={(e) => handleInputChange('location', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -245,7 +245,7 @@ export function BatchSubmission() {
                   required
                   value={formData.harvestDate}
                   onChange={(e) => handleInputChange('harvestDate', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                  className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                 />
               </div>
 
@@ -261,12 +261,12 @@ export function BatchSubmission() {
                     placeholder="e.g. 5000"
                     value={formData.quantity}
                     onChange={(e) => handleInputChange('quantity', e.target.value)}
-                    className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                    className="text-slate-600 flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                   />
                   <select
                     value={formData.unit}
                     onChange={(e) => handleInputChange('unit', e.target.value)}
-                    className="w-32 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-slate-50"
+                    className="text-slate-600 w-32 px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-slate-50"
                   >
                     {units.map(u => (
                       <option key={u} value={u}>{u}</option>

@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { User, ShieldCheck, Globe, Settings, Mail, Lock, Loader2, AlertCircle, UserPlus } from 'lucide-react';
+import { 
+  User, ShieldCheck, Globe, Settings, Mail, Lock, 
+  Loader2, AlertCircle, UserPlus, ArrowRight, Zap 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,26 +15,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const router = useRouter();
-  
-  // Toggle State: Login vs Signup
   const [isLogin, setIsLogin] = useState(true);
-
+  
   // Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState(''); // New field for signup
+  const [fullName, setFullName] = useState('');
   
   // UI States
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- 1. DEMO LOGIN (Keeps existing hackathon functionality) ---
-  const handleDemoLogin = (role: string, redirectPath: string) => {
-    localStorage.setItem('mock_role', role);
-    router.push(redirectPath);
-  };
-
-  // --- 2. AUTHENTICATION HANDLER ---
+  // --- 1. STANDARD AUTH HANDLER ---
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -39,60 +34,32 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        // --- LOGIN FLOW ---
-        const result = await signIn('credentials', {
-          redirect: false,
-          email,
-          password,
-        });
-
+        // LOGIN FLOW
+        const result = await signIn('credentials', { redirect: false, email, password });
+        
         if (result?.error) {
           setError("Invalid email or password.");
           setLoading(false);
           return;
         }
 
-        // Fetch real role (Bridging NextAuth -> LocalStorage for the UI)
-        const sessionRes = await fetch('/api/auth/session');
-        const session = await sessionRes.json();
-        const realRole = session?.user?.role || 'EXPORTER'; 
-
-        localStorage.setItem('mock_role', realRole);
-
-        // Redirect logic
-        const pathToRedirect = 
-          realRole === 'QA_AGENCY' ? '/inspections' :
-          realRole === 'IMPORTER' ? '/market' :
-          realRole === 'ADMIN' ? '/admin' :
-          '/';
-
-        router.push(pathToRedirect);
-        router.refresh();
+        // Bridge Session -> LocalStorage
+        await finalizeLogin();
 
       } else {
-        // --- SIGN UP FLOW ---
-        // TODO: Replace this with your actual Registration API endpoint
-        console.log("Registering user:", { fullName, email, password });
-        
-        // Simulating a successful registration for UI feedback
-        // In a real app, you would fetch('/api/register', body) here.
-        
+        // SIGNUP FLOW
         const res = await fetch('/api/auth/signup', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ name: fullName, email, password }),
         });
-
-        if (!res.ok) {
-            throw new Error('Registration failed');
-        }
-
-        // Auto-login after signup, or switch to login view
+        
+        if (!res.ok) throw new Error('Registration failed');
+        
         setIsLogin(true);
         setError(null);
         alert("Account created! Please sign in."); 
       }
-
     } catch (err) {
       console.error("Auth Error:", err);
       setError("Something went wrong. Please try again.");
@@ -101,61 +68,191 @@ export default function LoginPage() {
     }
   };
 
+  // --- SMART DEMO LOGIN HANDLER ---
+  const handleDemoLogin = async (role: string, demoEmail: string, redirectPath: string) => {
+    setLoading(true);
+    setError(null);
+    const demoPassword = "password123"; // Standard password for all demo users
+
+    try {
+      // 1. Attempt to Login first
+      const result = await signIn('credentials', { 
+        redirect: false, 
+        email: demoEmail, 
+        password: demoPassword 
+      });
+
+      if (!result?.error) {
+        // Login successful! Bridge the session and redirect.
+        await finalizeLogin(redirectPath);
+        return;
+      }
+
+      // 2. Login failed? User doesn't exist. Auto-Register them now.
+      console.log(`Creating demo user for role: ${role}...`);
+      
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: `Demo ${role.replace('_', ' ')}`, // e.g. "Demo QA Agency"
+          email: demoEmail, 
+          password: demoPassword,
+          role: role // <--- CRITICAL: Sending the specific role to your API
+        }),
+      });
+
+      if (res.ok) {
+        // 3. Registration successful. Login automatically.
+        const retryResult = await signIn('credentials', { 
+          redirect: false, 
+          email: demoEmail, 
+          password: demoPassword 
+        });
+        
+        if (!retryResult?.error) {
+          await finalizeLogin(redirectPath);
+          return;
+        }
+      }
+      
+      throw new Error("Could not initialize demo user.");
+
+    } catch (err) {
+      console.error("Demo Error:", err);
+      setError("Demo login failed. Please try signing up manually.");
+      setLoading(false);
+    }
+  };
+
+  // Helper to handle the post-login redirect (used by both standard and demo auth)
+  const finalizeLogin = async (customRedirect?: string) => {
+    const sessionRes = await fetch('/api/auth/session');
+    const session = await sessionRes.json();
+    const realRole = session?.user?.role || 'EXPORTER'; 
+    
+    localStorage.setItem('mock_role', realRole);
+    
+    // Use the custom path if provided (e.g. for specific demos), otherwise default logic
+    const pathToRedirect = customRedirect || (
+      realRole === 'QA_AGENCY' ? '/' :
+      realRole === 'IMPORTER' ? '/' :
+      realRole === 'ADMIN' ? '/' : 
+      '/'
+    );
+      
+    router.push(pathToRedirect);
+    router.refresh();
+  };
+
+  // --- UPDATED DEMO ROLES CONFIG ---
+  // We added unique emails so each button creates a distinct user in the DB
   const demoRoles = [
-    { role: 'EXPORTER', label: 'Exporter', description: 'Export compliance & documentation', icon: User, color: 'bg-emerald-600 hover:bg-emerald-700 text-white', path: '/dashboard' },
-    { role: 'QA_AGENCY', label: 'QA Agency', description: 'Quality inspections & certifications', icon: ShieldCheck, color: 'bg-blue-600 hover:bg-blue-700 text-white', path: '/inspections' },
-    { role: 'IMPORTER', label: 'Importer', description: 'Browse verified products', icon: Globe, color: 'bg-purple-600 hover:bg-purple-700 text-white', path: '/market' },
-    { role: 'ADMIN', label: 'Admin', description: 'System administration', icon: Settings, color: 'bg-gray-600 hover:bg-gray-700 text-white', path: '/admin' },
+    { 
+      role: 'EXPORTER', 
+      email: 'exporter@demo.com', 
+      label: 'Exporter', 
+      description: 'Docs & Compliance', 
+      icon: User, 
+      color: 'from-emerald-500 to-emerald-700',
+      path: '/' 
+    },
+    { 
+      role: 'QA_AGENCY', 
+      email: 'qa@demo.com', 
+      label: 'QA Agency', 
+      description: 'Inspection & Certs', 
+      icon: ShieldCheck, 
+      color: 'from-blue-500 to-blue-700',
+      path: '/' // Redirects straight to their work
+    },
+    { 
+      role: 'IMPORTER', 
+      email: 'importer@demo.com', 
+      label: 'Importer', 
+      description: 'Marketplace Access', 
+      icon: Globe, 
+      color: 'from-purple-500 to-purple-700',
+      path: '/' 
+    },
+    { 
+      role: 'ADMIN', 
+      email: 'admin@demo.com', 
+      label: 'Admin', 
+      description: 'System Control', 
+      icon: Settings, 
+      color: 'from-gray-600 to-gray-800',
+      path: '/' 
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-emerald-900 mb-2">
-            Export Compliance Platform
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-emerald-200 via-slate-50 to-emerald-300">
+      
+      {/* Background Shapes */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-emerald-400/20 blur-3xl animate-pulse" />
+        <div className="absolute top-[40%] -right-[10%] w-[40%] h-[40%] rounded-full bg-blue-400/20 blur-3xl animate-pulse delay-1000" />
+      </div>
+
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-8 z-10">
+        
+        {/* Left Side */}
+        <div className="hidden lg:flex flex-col justify-center space-y-6 text-slate-800 p-8">
+          <div className="bg-white/80 backdrop-blur-sm w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+             <Globe className="h-8 w-8 text-emerald-600" />
+          </div>
+          <h1 className="text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-800 to-teal-900">
+            Global Trade, <br/> Simplified.
           </h1>
-          <p className="text-gray-600">
-            Streamlining global trade with trust and transparency
+          <p className="text-lg text-slate-700 leading-relaxed max-w-md font-medium">
+            The next-generation export compliance platform. Secure, transparent, and built for trust.
           </p>
+          <div className="flex items-center space-x-4 pt-4">
+            <div className="flex -space-x-2">
+              {[1,2,3].map(i => (
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" />
+              ))}
+            </div>
+            <p className="text-sm font-medium text-slate-600">Trusted by 500+ exporters</p>
+          </div>
         </div>
 
-        <Card className="shadow-xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-emerald-900">
-              {isLogin ? 'Sign In' : 'Create Account'}
+        {/* Right Side: Auth Card */}
+        <Card className="border-0 shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
+          <CardHeader className="space-y-1 pb-2 border-b border-slate-100 bg-slate-50/50 p-8">
+            <CardTitle className="text-2xl font-bold text-slate-900">
+              {isLogin ? 'Welcome Back' : 'Get Started'}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-base text-slate-500">
               {isLogin 
-                ? 'Enter your credentials to access your account' 
-                : 'Fill in your details to join the platform'}
+                ? 'Enter your credentials to access the workspace.' 
+                : 'Join the network today. No credit card required.'}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          
+          <CardContent className="p-8 space-y-6">
             
-            {/* Error Message */}
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
-            <form onSubmit={handleAuth} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-5">
               
-              {/* Full Name - Only Visible during Signup */}
               {!isLogin && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <Label htmlFor="name" className="text-gray-700">Full Name</Label>
-                  <div className="relative">
-                    <UserPlus className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <Label htmlFor="name" className="text-slate-700 font-medium">Full Name</Label>
+                  <div className="relative group">
+                    <UserPlus className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                     <Input
                       id="name"
-                      type="text"
-                      placeholder="John Doe"
+                      placeholder="Jane Doe"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                       required={!isLogin}
                     />
                   </div>
@@ -163,32 +260,35 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Label htmlFor="email" className="text-slate-700 font-medium">Email Address</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@company.com"
+                    placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
+                    className="text-black pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                     required
                   />
                 </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
+                  {isLogin && <a href="#" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Forgot?</a>}
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
+                    className="text-black pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                     required
                   />
                 </div>
@@ -196,75 +296,72 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
                 disabled={loading}
               >
                 {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLogin ? 'Signing In...' : 'Creating Account...'}
-                  </>
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Processing...</span>
+                  </div>
                 ) : (
-                  isLogin ? 'Sign In' : 'Sign Up'
+                  <div className="flex items-center justify-center gap-2">
+                    <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
                 )}
               </Button>
             </form>
 
-            {/* Divider */}
-            <div className="relative">
+            <div className="relative py-2">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
+                <span className="w-full border-t border-slate-200" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-4 text-gray-500 font-medium">OR</span>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-3 text-slate-400 font-medium tracking-wider flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-emerald-500 fill-emerald-500" /> 
+                  Instant Demo Access
+                </span>
               </div>
             </div>
 
-            {/* Demo Mode Section */}
-            <div className="space-y-4">
-              <div className="text-center space-y-1">
-                <h3 className="text-lg font-semibold text-emerald-900">
-                  Quick Demo Mode
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Explore different user perspectives instantly
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {demoRoles.map((demo) => {
-                  const Icon = demo.icon;
-                  return (
-                    <button
-                      key={demo.role}
-                      onClick={() => handleDemoLogin(demo.role, demo.path)}
-                      className={`${demo.color} p-4 rounded-lg transition-all duration-200 transform hover:scale-105 hover:shadow-lg flex flex-col items-start space-y-2 text-left`}
-                    >
-                      <div className="flex items-center space-x-3 w-full">
-                        <div className="bg-white/20 p-2 rounded">
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="font-semibold text-lg">{demo.label}</span>
-                      </div>
-                      <p className="text-sm opacity-90 pl-11">{demo.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Functional Demo Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {demoRoles.map((demo) => {
+                const Icon = demo.icon;
+                return (
+                  <button
+                    key={demo.role}
+                    disabled={loading}
+                    onClick={() => handleDemoLogin(demo.role, demo.email,demo.path)}
+                    className="group relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 hover:shadow-md hover:border-emerald-200 transition-all text-left disabled:opacity-50"
+                  >
+                     <div className={`absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                        <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${demo.color}`} />
+                     </div>
+                     <div className="flex items-center gap-3">
+                       <div className={`p-2 rounded-lg bg-gradient-to-br ${demo.color} text-white shadow-sm`}>
+                         <Icon className="h-4 w-4" />
+                       </div>
+                       <div>
+                         <p className="text-sm font-bold text-slate-700 group-hover:text-emerald-800 transition-colors">{demo.label}</p>
+                         <p className="text-[10px] text-slate-400 leading-tight">One-click login</p>
+                       </div>
+                     </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Footer Toggle */}
-            <div className="pt-4 border-t border-gray-200 text-center">
-              <p className="text-sm text-gray-600">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <div className="text-center">
+              <p className="text-sm text-slate-500">
+                {isLogin ? "New to the platform? " : "Already have an account? "}
                 <button 
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setError(null); // Clear errors when switching
-                  }} 
-                  className="text-emerald-600 hover:text-emerald-700 font-medium hover:underline focus:outline-none"
+                  onClick={() => { setIsLogin(!isLogin); setError(null); }} 
+                  className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
                 >
-                  {isLogin ? "Sign Up" : "Sign In"}
+                  {isLogin ? "Create an account" : "Log in"}
                 </button>
               </p>
             </div>

@@ -158,7 +158,7 @@ export function InspectionRequests() {
               placeholder="Search by batch ID, exporter, or crop type..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="text-slate-600 placeholder:text-slate-300 w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
         </div>
@@ -286,7 +286,7 @@ export function InspectionRequests() {
                     value={formData.moistureLevel}
                     onChange={(e) => setFormData(prev => ({ ...prev, moistureLevel: e.target.value }))}
                     placeholder="e.g., 12.5"
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
 
@@ -301,7 +301,7 @@ export function InspectionRequests() {
                     value={formData.pesticideContent}
                     onChange={(e) => setFormData(prev => ({ ...prev, pesticideContent: e.target.value }))}
                     placeholder="e.g., 0.15"
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    className="text-slate-600 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -314,7 +314,7 @@ export function InspectionRequests() {
                   required
                   value={formData.qualityGrade}
                   onChange={(e) => setFormData(prev => ({ ...prev, qualityGrade: e.target.value }))}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   <option value="">Select grade</option>
                   <option value="A">Grade A - Premium Quality</option>
@@ -344,7 +344,7 @@ export function InspectionRequests() {
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="Enter any additional observations or remarks..."
                   rows={4}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="text-slate-500 w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
               </div>
 
