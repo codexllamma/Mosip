@@ -14,19 +14,15 @@ datasource db {
 }
 
 model User {
-  id              String       @id @default(uuid())
-  email           String       @unique
-  name            String
-  createdAt       DateTime     @default(now())
-  did             String?      @unique
-  organization    String?
-  role            UserRole     @default(EXPORTER)
-  password        String?
-  auditLogs       AuditLog[]
-  assignedBatches Batch[]      @relation("AssignedInspector")
-  exportedBatches Batch[]      @relation("BatchExporter")
-  inspections     Inspection[]
-  qaProfile       QAProfile?
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  password     String?
+  role         UserRole @default(EXPORTER)
+  organization String?
+  did          String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 }
 
 model QAProfile {
@@ -38,71 +34,79 @@ model QAProfile {
   active         Boolean @default(true)
   pinCode        Int
   testsAvailable Json
-  user           User    @relation(fields: [userId], references: [id])
+}
+
+model Exporter {
+  iecNum   BigInt @id @unique
+  address  String
+  city     String
+  phoneNum BigInt
+  country  String
+  panNum   String
+  gstNum   String
+}
+
+model ProcessingUnit {
+  id          String @id @default(uuid())
+  name        String
+  address     String
+  fssaiNumber BigInt
 }
 
 model Batch {
-  id                  String       @id @default(uuid())
-  batchNumber         String       @unique
-  exporterId          String
+  id                  String      @id @default(uuid())
+  batchNumber         String      @unique
   cropType            String
+  variety             String?      @default("Grade A")
   quantity            Float
   unit                String
   location            String
+  pinCode             BigInt      @default(400092)
   harvestDate         DateTime
   destinationCountry  String
-  status              BatchStatus  @default(PENDING)
-  updatedAt           DateTime     @updatedAt
+  status              BatchStatus @default(PENDING)
   traceabilityCode    String?
-  variety             String       @default("Grade A")
-  pinCode             BigInt       @default(400092)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  exporterId          String
   assignedInspectorId String?
-  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
-  exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
-  certificate         Certificate?
-  inspection          Inspection?
 }
 
 model Inspection {
   id               String   @id @default(uuid())
-  batchId          String   @unique
+  batchId          String
   inspectorId      String
   moisture         String
   pesticideResidue String
   organic          Boolean
   heavyMetals      String?
-  isoCode          String?
   grade            String?
+  isoCode          String?
   notes            String?
   inspectedAt      DateTime @default(now())
-  batch            Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  inspector        User     @relation(fields: [inspectorId], references: [id])
 }
 
 model Certificate {
-  id           String                @id @default(uuid())
-  batchId      String                @unique
+  id           String   @id @default(uuid())
+  batchId      String
   batchNumber  String
   productType  String
   exporterName String
   qaAgencyName String
   issuedAt     DateTime
   expiresAt    DateTime
-  createdAt    DateTime              @default(now())
-  batch        Batch                 @relation(fields: [batchId], references: [id])
-  vc           VerifiableCredential?
+  createdAt    DateTime @default(now())
 }
 
 model VerifiableCredential {
-  id            String      @id @default(uuid())
-  certificateId String      @unique
+  id            String   @id @default(uuid())
+  certificateId String
   vcJson        Json
   issuerDid     String
   subjectDid    String
   signature     String
   verifyUrl     String
-  createdAt     DateTime    @default(now())
-  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
 }
 
 model AuditLog {
@@ -113,24 +117,6 @@ model AuditLog {
   actorId    String?
   details    Json?
   createdAt  DateTime @default(now())
-  actor      User?    @relation(fields: [actorId], references: [id])
-}
-
-model exporter {
-  iecNum   BigInt @id @unique @default(autoincrement())
-  address  String
-  city     String
-  phoneNum BigInt
-  country  String
-  panNum   String
-  gstNum   String
-}
-
-model ProcessingUnit {
-  id          String @id
-  name        String
-  address     String
-  fssaiNumber BigInt
 }
 
 enum UserRole {
