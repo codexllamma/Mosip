@@ -8,7 +8,8 @@ import {
   Menu, 
   X,
   LogOut, 
-  User
+  User,
+  ScanLine // <--- Added this icon
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
 
@@ -24,11 +25,12 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const navItems = [
-    // FIX: Changed roles to UPPERCASE to match your Login Page
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['EXPORTER', 'QA_AGENCY', 'IMPORTER', 'ADMIN'] },
     { id: 'batch-submission', label: 'Batch Submission', icon: Upload, roles: ['EXPORTER'] },
     { id: 'inspection-requests', label: 'Inspection Requests', icon: ClipboardCheck, roles: ['QA_AGENCY'] },
     { id: 'digital-passports', label: 'Digital Passports (VCs)', icon: ShieldCheck, roles: ['EXPORTER', 'QA_AGENCY', 'IMPORTER'] },
+    // --- NEW TAB ADDED HERE ---
+    { id: 'inji-verify', label: 'Inji Verify', icon: ScanLine, roles: ['IMPORTER', 'QA_AGENCY', 'ADMIN'] }, 
     { id: 'audit-logs', label: 'Audit Logs', icon: FileText, roles: ['ADMIN'] },
   ];
 
