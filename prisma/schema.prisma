@@ -15,7 +15,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- USER & AUTH ---
 model User {
   id              String   @id @default(uuid())
   email           String   @unique
@@ -47,7 +46,6 @@ model QAProfile {
   user           User    @relation(fields: [userId], references: [id])
 }
 
-// --- EXPORTER DETAILS ---
 model Exporter {
   iecNum   BigInt @id @unique
   address  String
@@ -67,8 +65,6 @@ model ProcessingUnit {
   fssaiNumber BigInt
 }
 
-// --- CORE SUPPLY CHAIN ---
-
 model Batch {
   id                  String      @id @default(uuid())
   batchNumber         String      @unique
@@ -81,12 +77,11 @@ model Batch {
   pinCode             Int       @default(400092)
   harvestDate         DateTime
   destinationCountry  String
-  status              BatchStatus @default(SUBMITTED)
+  status              BatchStatus @default(PENDING)
   traceabilityCode    String?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
-  // Relations
   exporterId          String
   exporter            User        @relation("BatchExporter", fields: [exporterId], references: [id])
   
@@ -108,15 +103,12 @@ model Inspection {
   notes            String?
   inspectedAt      DateTime @default(now())
 
-  // Relations
   batchId          String   @unique
   batch            Batch    @relation(fields: [batchId], references: [id])
   
   inspectorId      String
   inspector        User     @relation(fields: [inspectorId], references: [id])
 }
-
-// --- CREDENTIALS ---
 
 model Certificate {
   id            String   @id @default(uuid())
