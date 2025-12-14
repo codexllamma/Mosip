@@ -74,7 +74,7 @@ model Batch {
   unit                String
   tests               String[]
   location            String
-  pinCode             Int       @default(400092)
+  pinCode             Int       @default(400091)
   harvestDate         DateTime
   destinationCountry  String
   status              BatchStatus @default(PENDING)
