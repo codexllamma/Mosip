@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: mosipdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  prisma:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: "postgresql://admin:admin123@postgres:5432/mosipdb"
+    depends_on:
+      - postgres
+  
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://admin:admin123@postgres:5432/mosipdb"
+    depends_on:
+      - prisma
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: "postgresql://admin:admin123@postgres:5432/mosipdb"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
