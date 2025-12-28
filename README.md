@@ -80,6 +80,7 @@ npx prisma migrate dev --name init
 npx ts-node utils/seedData.ts
 ```
 
+<<<<<<< HEAD
 ## Docker (recommended)
 
 Start the full stack with Docker Compose (builds frontend/backend):
@@ -90,6 +91,8 @@ docker-compose up --build
 
 This will build the services defined in `docker-compose.yml` and expose ports described there. Check container logs for service URLs.
 
+=======
+>>>>>>> 19d3e43bb3c4e9850d648d1f49d2c6be5f1439b3
 ## Environment variables
 
 The project uses a `.env` file for secrets and configuration. Typical variables you will need to provide include:
@@ -126,4 +129,8 @@ If you'd like, I can also:
 - add `npm` scripts for starting frontend + backend together
 - run `docker-compose up` and verify services start locally
 
+<<<<<<< HEAD
 README saved as `Mosip/README_NEW.md`.
+=======
+README saved as `Mosip/README_NEW.md`.
+>>>>>>> 19d3e43bb3c4e9850d648d1f49d2c6be5f1439b3
