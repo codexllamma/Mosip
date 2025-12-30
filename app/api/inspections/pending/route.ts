@@ -30,11 +30,11 @@ export async function GET() {
       location: batch.location,
       destination_country: batch.destinationCountry,
       harvest_date: batch.harvestDate,
-      submitted_at: batch.updatedAt,  // Using updatedAt since createdAt isn't in schema
+      submitted_at: batch.updatedAt,  
       status: batch.status.toLowerCase(),
       variety: batch.variety,
       unit: batch.unit,
-      // Note: labReports and farmPhotos don't exist in your schema
+      
       lab_reports: [],
       farm_photos: []
     }));

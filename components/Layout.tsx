@@ -30,7 +30,7 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
     { id: 'inspection-requests', label: 'Inspection Requests', icon: ClipboardCheck, roles: ['QA_AGENCY'] },
     { id: 'digital-passports', label: 'Digital Passports (VCs)', icon: ShieldCheck, roles: ['EXPORTER', 'QA_AGENCY', 'IMPORTER'] },
     // --- NEW TAB ADDED HERE ---
-    { id: 'inji-verify', label: 'Inji Verify', icon: ScanLine, roles: ['IMPORTER', 'QA_AGENCY', 'ADMIN'] }, 
+    { id: 'inji-verify', label: 'Inji Verify', icon: ScanLine, roles: ['IMPORTER', 'QA_AGENCY', 'ADMIN','EXPORTER'] }, 
     { id: 'audit-logs', label: 'Audit Logs', icon: FileText, roles: ['ADMIN'] },
   ];
 

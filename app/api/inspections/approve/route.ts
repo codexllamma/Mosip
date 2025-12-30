@@ -152,8 +152,8 @@ export async function POST(req: NextRequest) {
       // Step C: Audit Log
       await tx.auditLog.create({
         data: {
-          action: "ISSUED_CREDENTIAL",
-          entityType: "CERTIFICATE",
+          action: "Issued",
+          entityType: "Credentials",
           entityId: certificateId,
           actorId: inspector.id,
           details: { batchNumber: batch.batchNumber }

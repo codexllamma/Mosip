@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
         // 4. Audit Log
         await prisma.auditLog.create({
           data: {
-            action: 'CREATED_BATCH',
-            entityType: 'BATCH',
+            action: 'Created ',
+            entityType: 'Batch',
             entityId: newBatch.id,
             actorId: exporter.id,
             details: { batchNumber, cropType, tests }
