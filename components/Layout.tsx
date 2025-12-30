@@ -21,8 +21,6 @@ import VoiceNav from './VoiceNav';
 // 1. UPDATE THE INTERFACE
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: string;              // <--- Add this
-  onNavigate: (view: string) => void; // <--- Add this
   onLogout: () => void;             // <--- Add this
 }
 

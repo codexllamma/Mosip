@@ -3,18 +3,28 @@
 import { useState, useEffect, useRef } from "react";
 import { Mic, MicOff } from "lucide-react";
 import { useRole } from "@/contexts/RoleContext";
-import { useVoiceNav } from "@/contexts/VoiceContext"; // Import the context hook
+import { useVoiceNav } from "@/contexts/VoiceContext";
 
 export default function VoiceNav() {
   const { role } = useRole();
-  const { navigateTo } = useVoiceNav(); // Use context instead of props
+  const { navigateTo } = useVoiceNav();
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isEnabledRef = useRef(false);
 
+  // We use refs for navigation and role so the useEffect doesn't 
+  // need to restart every time the page changes.
+  const navigateRef = useRef(navigateTo);
+  const roleRef = useRef(role);
+
   useEffect(() => {
-    const SpeechRecognition = 
-      (window as any).SpeechRecognition || (window as any).webkitRecognition;
+    navigateRef.current = navigateTo;
+    roleRef.current = role;
+  }, [navigateTo, role]);
+
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       console.warn("Speech recognition not supported in this browser.");
@@ -28,6 +38,7 @@ export default function VoiceNav() {
 
     recognition.onstart = () => {
       setIsListening(true);
+      console.log("Voice System: Active");
     };
 
     recognition.onresult = (event: any) => {
@@ -36,50 +47,57 @@ export default function VoiceNav() {
       
       console.log("Voice Command Heard:", text);
 
-      // --- NAVIGATION LOGIC ---
+      // Use the Ref version of navigate to avoid effect re-runs
+      const nav = navigateRef.current;
+      const currentRole = roleRef.current;
+
       if (text.includes("take") || text.includes("show") || text.includes("go to")) {
         if (text.includes("dashboard") || text.includes("home")) {
-          navigateTo("dashboard");
+          nav("dashboard");
         } 
-        else if (role === "EXPORTER" && (text.includes("batch") || text.includes("submission") || text.includes("upload"))) {
-          navigateTo("batch-submission");
+        else if (currentRole === "EXPORTER" && (text.includes("batch") || text.includes("submission"))) {
+          nav("batch-submission");
         } 
-        else if (role === "QA_AGENCY" && (text.includes("inspection") || text.includes("request"))) {
-          navigateTo("inspection-requests");
+        else if (currentRole === "QA_AGENCY" && (text.includes("inspection"))) {
+          nav("inspection-requests");
         } 
         else if (text.includes("passport") || text.includes("credential")) {
-          navigateTo("digital-passports");
+          nav("digital-passports");
         } 
         else if (text.includes("verify") || text.includes("inji")) {
-          navigateTo("inji-verify");
+          nav("inji-verify");
         } 
-        else if (role === "ADMIN" && (text.includes("audit") || text.includes("log") || text.includes("history"))) {
-          navigateTo("audit-logs");
+        else if (currentRole === "ADMIN" && (text.includes("audit") || text.includes("log"))) {
+          nav("audit-logs");
         }
       }
-
-      // --- ACTION LOGIC (Internal Component State) ---
-      else if (text.includes("create") || text.includes("make") || text.includes("new")) {
-        // If they say "Create new", we ensure they are on the page AND show the form
-        navigateTo("form"); 
+      else if (role == "EXPORTER" &&(text.includes("create") || text.includes("make") || text.includes("new"))) {
+        nav("form"); 
       }
-      
-      else if (text.includes("view list") || text.includes("show list") || text.includes("back to list")) {
-        navigateTo("list");
+      else if (text.includes("view list") || text.includes("show list") || text.includes("back")) {
+        nav("list");
       }
     };
 
     recognition.onerror = (err: any) => {
       if (err.error === "aborted") return;
+      
+      // 'no-speech' is the most common reason the mic stops. 
+      // We catch it here so onend() can handle the restart.
+      if (err.error === "no-speech") {
+        return; 
+      }
       console.error("Speech Recognition Error:", err.error);
     };
-
+    
     recognition.onend = () => {
+      // CRITICAL: Restart logic
       if (isEnabledRef.current) {
+        console.log("Restarting Recognition...");
         try {
           recognition.start();
         } catch (e) {
-          console.error("Restart failed:", e);
+          // If it's already starting, this catch prevents a crash
         }
       } else {
         setIsListening(false);
@@ -92,13 +110,12 @@ export default function VoiceNav() {
       isEnabledRef.current = false;
       recognition.stop();
     };
-  }, [role, navigateTo]); // Added dependencies
+  }, []); // Empty dependency array ensures the mic instance is stable
 
   const toggleMic = () => {
     if (isEnabledRef.current) {
       isEnabledRef.current = false;
       recognitionRef.current?.stop();
-      setIsListening(false);
     } else {
       isEnabledRef.current = true;
       try {
