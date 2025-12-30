@@ -12,6 +12,7 @@ import {
   ScanLine // <--- Added this icon
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
+import VoiceNav from './VoiceNav';
 
 interface LayoutProps {
   children: ReactNode;
@@ -126,6 +127,7 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
 
             {/* User Profile */}
             <div className="flex items-center gap-4">
+              <VoiceNav onNavigate={onNavigate}/>
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
                   <div className="text-sm font-medium text-slate-900">{userName || 'User'}</div>
