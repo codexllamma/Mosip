@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Mic } from "lucide-react";
-
+import { Mic,MicOff } from "lucide-react";
+import { useRole } from "@/contexts/RoleContext";
 interface VoiceNavProps {
   onNavigate: (view: string) => void;
 }
 
 export default function VoiceNav({ onNavigate }: VoiceNavProps) {
-  
+  const {role} = useRole();
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const isStartedRef = useRef(false);
+  const isEnabledRef = useRef(false);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -36,8 +36,8 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
       // Get the last result index to handle continuous stream
       const lastIndex = event.results.length - 1;
       const text = event.results[lastIndex][0].transcript.toLowerCase();
+      console.log("Role", role);
       console.log("Voice Command Heard:", text);
-
       if (text.includes("dashboard") || text.includes("home")) {
         onNavigate("dashboard");
       } 
