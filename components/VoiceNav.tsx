@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Mic } from "lucide-react";
-
+import { Mic, MicOff } from "lucide-react"; // Added MicOff for variety
+import {useRole} from "@/contexts/RoleContext";
 interface VoiceNavProps {
   onNavigate: (view: string) => void;
 }
 
 export default function VoiceNav({ onNavigate }: VoiceNavProps) {
+  const { role, userName } = useRole();
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const isStartedRef = useRef(false);
+  const isEnabledRef = useRef(false); // Tracks if the user wants the mic ON
 
   useEffect(() => {
-    // Initialize Speech Recognition
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
@@ -22,27 +22,29 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    
+    // KEY CHANGE 1: Enable continuous listening
+    recognition.continuous = true; 
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
       setIsListening(true);
-      isStartedRef.current = true;
     };
 
     recognition.onresult = (event: any) => {
-      const text = event.results[0][0].transcript.toLowerCase();
+      // Get the last result index to handle continuous stream
+      const lastIndex = event.results.length - 1;
+      const text = event.results[lastIndex][0].transcript.toLowerCase();
       console.log("Voice Command Heard:", text);
 
-      // Mapping voice keywords to your App's currentView state
       if (text.includes("dashboard") || text.includes("home")) {
         onNavigate("dashboard");
       } 
-      else if (text.includes("batch") || text.includes("submission") || text.includes("upload")) {
+      else if (role == "EXPORTER" && (text.includes("batch") || text.includes("submission") || text.includes("upload"))) {
         onNavigate("batch-submission");
       } 
-      else if (text.includes("inspection") || text.includes("request")) {
+      else if (role == "QA_AGENCY" && (text.includes("inspection") || text.includes("request"))) {
         onNavigate("inspection-requests");
       } 
       else if (text.includes("passport") || text.includes("credential")) {
@@ -51,29 +53,47 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
       else if (text.includes("verify") || text.includes("inji")) {
         onNavigate("inji-verify");
       } 
-      else if (text.includes("audit") || text.includes("log") || text.includes("history")) {
+      else if (role == "ADMIN" &&(text.includes("audit") || text.includes("log") || text.includes("history"))) {
         onNavigate("audit-logs");
       }
     };
 
     recognition.onerror = (err: any) => {
+      // Ignore 'aborted' error if we manually stopped it
+      if (err.error === 'aborted') return;
       console.error("Speech Recognition Error:", err.error);
-      setIsListening(false);
-      isStartedRef.current = false;
     };
 
     recognition.onend = () => {
-      setIsListening(false);
-      isStartedRef.current = false;
+      // KEY CHANGE 2: Auto-restart if the user hasn't explicitly turned it off
+      // The browser often stops recognition after long silence or network hiccups
+      if (isEnabledRef.current) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Restart failed:", e);
+        }
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognitionRef.current = recognition;
+
+    // Cleanup on unmount
+    return () => {
+      isEnabledRef.current = false;
+      recognition.stop();
+    };
   }, [onNavigate]);
 
   const toggleMic = () => {
-    if (isStartedRef.current) {
+    if (isEnabledRef.current) {
+      isEnabledRef.current = false;
       recognitionRef.current?.stop();
+      setIsListening(false);
     } else {
+      isEnabledRef.current = true;
       try {
         recognitionRef.current?.start();
       } catch (e) {
@@ -84,11 +104,10 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
 
   return (
     <div className="flex items-center gap-3">
-      {/* Visual indicator shown only when listening */}
       {isListening && (
         <span className="flex h-2 w-2 relative">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
         </span>
       )}
       
@@ -97,12 +116,12 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
         type="button"
         className={`p-2.5 rounded-full transition-all duration-300 border ${
           isListening 
-            ? "bg-red-500 text-white border-red-600 shadow-lg scale-110" 
-            : "bg-white text-slate-500 border-slate-200 hover:border-emerald-500 hover:text-emerald-600 hover:shadow-sm"
+            ? "bg-emerald-500 text-white border-emerald-600 shadow-lg scale-110" 
+            : "bg-white text-slate-500 border-slate-200 hover:border-emerald-500 hover:text-emerald-600"
         }`}
-        title={isListening ? "Listening..." : "Voice Navigation"}
+        title={isListening ? "Listening Continuously..." : "Enable Voice Control"}
       >
-        <Mic size={18} strokeWidth={isListening ? 3 : 2} />
+        {isListening ? <Mic size={18} strokeWidth={3} /> : <MicOff size={18} />}
       </button>
     </div>
   );
