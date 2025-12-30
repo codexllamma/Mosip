@@ -17,9 +17,13 @@ import { useRole } from "@/contexts/RoleContext";
 import { useVoiceNav } from "@/contexts/VoiceContext"; // 1. Import the context
 import VoiceNav from './VoiceNav';
 
+
+// 1. UPDATE THE INTERFACE
 interface LayoutProps {
-  children: ReactNode;
-  onLogout?: () => void;
+  children: React.ReactNode;
+  currentView: string;              // <--- Add this
+  onNavigate: (view: string) => void; // <--- Add this
+  onLogout: () => void;             // <--- Add this
 }
 
 export function Layout({ children, onLogout }: LayoutProps) {
