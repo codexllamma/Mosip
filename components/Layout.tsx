@@ -11,7 +11,7 @@ import {
   User,
   ScanLine // <--- Added this icon
 } from 'lucide-react';
-import { useRole } from '../contexts/RoleContext';
+import { useRole } from "@/contexts/RoleContext";
 import VoiceNav from './VoiceNav';
 
 interface LayoutProps {

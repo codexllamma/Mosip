@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Mic } from "lucide-react";
+import { useRole } from "@/contexts/RoleContext";
 
 interface VoiceNavProps {
   onNavigate: (view: string) => void;
@@ -11,6 +12,7 @@ export default function VoiceNav({ onNavigate }: VoiceNavProps) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isStartedRef = useRef(false);
+  const { role } = useRole();
 
   useEffect(() => {
     // Initialize Speech Recognition
