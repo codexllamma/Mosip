@@ -1,3 +1,5 @@
+"use client";
+
 import { ReactNode, useState } from 'react';
 import { 
   LayoutDashboard, 
@@ -9,20 +11,20 @@ import {
   X,
   LogOut, 
   User,
-  ScanLine // <--- Added this icon
+  ScanLine 
 } from 'lucide-react';
 import { useRole } from "@/contexts/RoleContext";
+import { useVoiceNav } from "@/contexts/VoiceContext"; // 1. Import the context
 import VoiceNav from './VoiceNav';
 
 interface LayoutProps {
   children: ReactNode;
-  currentView: string;
-  onNavigate: (view: string) => void;
   onLogout?: () => void;
 }
 
-export function Layout({ children, currentView, onNavigate, onLogout }: LayoutProps) {
+export function Layout({ children, onLogout }: LayoutProps) {
   const { role, userName } = useRole();
+  const { currentView, navigateTo } = useVoiceNav(); // 2. Use context instead of props
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const navItems = [
@@ -30,17 +32,15 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
     { id: 'batch-submission', label: 'Batch Submission', icon: Upload, roles: ['EXPORTER'] },
     { id: 'inspection-requests', label: 'Inspection Requests', icon: ClipboardCheck, roles: ['QA_AGENCY'] },
     { id: 'digital-passports', label: 'Digital Passports (VCs)', icon: ShieldCheck, roles: ['EXPORTER', 'QA_AGENCY', 'IMPORTER'] },
-    // --- NEW TAB ADDED HERE ---
     { id: 'inji-verify', label: 'Inji Verify', icon: ScanLine, roles: ['IMPORTER', 'QA_AGENCY', 'ADMIN','EXPORTER'] }, 
     { id: 'audit-logs', label: 'Audit Logs', icon: FileText, roles: ['ADMIN'] },
   ];
 
-  // Logic: If navItem has NO roles defined, show it. 
-  // If it HAS roles, check if the current user's role is in the list.
   const visibleNavItems = navItems.filter(
     item => !item.roles || item.roles.includes(role || '')
   );
 
+  // 3. Updated breadcrumb logic to handle sub-views like 'form' or 'list'
   const breadcrumbs = currentView
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -54,7 +54,6 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
           isSidebarOpen ? 'w-64' : 'w-20'
         }`}
       >
-        {/* Sidebar Header */}
         <div className="p-6 border-b border-emerald-800 flex items-center justify-between h-20">
           <div className={`flex items-center gap-3 ${!isSidebarOpen && 'justify-center w-full'}`}>
             <div className="min-w-8 h-8 bg-white rounded-lg flex items-center justify-center">
@@ -64,15 +63,16 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
           </div>
         </div>
 
-        {/* Navigation Items */}
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentView === item.id;
+            // Check if active (handle cases where currentView might be 'form' but we are in 'batch-submission' section)
+            const isActive = currentView === item.id || (item.id === 'batch-submission' && (currentView === 'form' || currentView === 'list'));
+            
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => navigateTo(item.id)} // 4. Use navigateTo from context
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-emerald-800 text-white shadow-sm'
@@ -87,7 +87,6 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
           })}
         </nav>
 
-        {/* Logout Button */}
         <div className="p-4 border-t border-emerald-800">
           <button
             onClick={onLogout}
@@ -102,13 +101,11 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <div
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
           isSidebarOpen ? 'ml-64' : 'ml-20'
         }`}
       >
-        {/* Top Header */}
         <header className="bg-white border-b border-slate-200 sticky top-0 z-10 h-16">
           <div className="px-6 h-full flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -125,9 +122,9 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
               </nav>
             </div>
 
-            {/* User Profile */}
             <div className="flex items-center gap-4">
-              <VoiceNav onNavigate={onNavigate}/>
+              {/* 5. VoiceNav is here and can now update the whole app via Context */}
+              <VoiceNav />
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <div className="text-right hidden sm:block">
                   <div className="text-sm font-medium text-slate-900">{userName || 'User'}</div>
@@ -141,7 +138,6 @@ export function Layout({ children, currentView, onNavigate, onLogout }: LayoutPr
           </div>
         </header>
 
-        {/* Page Content */}
         <main className="p-6 flex-1 overflow-x-hidden">
           <div className="max-w-7xl mx-auto">
             {children}
