@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
     Upload, X, FileText, Image as ImageIcon, 
-    Plus, Calendar, MapPin, ChevronRight, 
+    Plus, Calendar, MapPin, ArrowRight, 
     ArrowLeft, CheckCircle2, Package, Clock, ShieldCheck, Globe, Loader2
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
