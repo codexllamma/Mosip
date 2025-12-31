@@ -116,26 +116,28 @@ export async function matchExporterUsingCity(
   }
 
   // 2. Fetch Active QAs
-  // Note: Depending on your schema, 'testsAvailable' might be a String[] or JSON.
-  // We assume scalar list (String[]) here.
   const allActiveProfiles = await prisma.qAProfile.findMany({
     where: { active: true },
     include: { user: true },
   });
 
-  // Filter in memory (Prisma doesn't support "array is subset of array" natively in all DBs)
+  // 3. Filter in memory 
   const qaProfiles = allActiveProfiles.filter((p) => {
-    // Ensure p.testsAvailable is typed correctly as string[]
-    const available = (p.testsAvailable as string[]) || []; 
-    return testsToBeDone.every((t) => available.includes(t));
+    // Cast to 'any' to handle the JSON object structure safely
+    const rawTests = (p as any).testsAvailable || {};
+
+    // Logic: Check if the required test exists as a KEY in the object and is TRUE
+    // Example: if rawTests is { moisture: true }, we check rawTests["moisture"]
+    return testsToBeDone.every((testName) => {
+      return rawTests[testName] === true;
+    });
   });
 
   if (qaProfiles.length === 0) {
     return { best: null, candidates: [], all_scored: [] };
   }
 
-  // 3. Compute raw metrics
-  // We use an extended interface to hold temporary calculation data
+  // 4. Compute raw metrics
   type RawEntry = {
     profile: typeof qaProfiles[0];
     distanceKm: number;
@@ -145,22 +147,20 @@ export async function matchExporterUsingCity(
   const rawEntries: RawEntry[] = [];
 
   for (const p of qaProfiles) {
+    const profileData = p as any; // Cast for flexible access
     let qaLat = p.latitude;
     let qaLng = p.longitude;
 
     // Logic: If coords missing, fetch via Pincode and UPDATE DB
     if (!qaLat || !qaLng) {
-      // Access pinCode safely (handling camelCase or lowercase variations in schema)
-      // @ts-ignore - Adjust 'pinCode' based on your actual Prisma schema
-      const qaPin = p.pinCode || p.pincode; 
+      const qaPin = profileData.pinCode || profileData.pincode; 
       
       const [newLat, newLng] = await pinToLatLon(qaPin);
       
       if (newLat !== null && newLng !== null) {
         qaLat = newLat;
         qaLng = newLng;
-
-        // Async update to DB
+        // Async update
         await prisma.qAProfile.update({
           where: { id: p.id },
           data: { latitude: newLat, longitude: newLng },
@@ -171,7 +171,6 @@ export async function matchExporterUsingCity(
     // Calculate Distance
     let distKm = Infinity;
     if (qaLat !== null && qaLng !== null) {
-      // geolib returns meters, convert to KM
       const distMeters = getDistance(
         { latitude: originLat, longitude: originLng },
         { latitude: qaLat, longitude: qaLng }
@@ -180,11 +179,8 @@ export async function matchExporterUsingCity(
     }
 
     // Calculate Availability
-    // @ts-ignore - Adjust property names based on schema
-    const currentLoad = p.currentLoad || 0;
-    // @ts-ignore
-    const maxCapacity = p.maxCapacity || 1;
-    
+    const currentLoad = profileData.currentLoad ?? 0;
+    const maxCapacity = profileData.maxCapacity ?? 1;
     const rawAvail = calculateAvailabilityScore(currentLoad, maxCapacity);
 
     rawEntries.push({
@@ -194,7 +190,7 @@ export async function matchExporterUsingCity(
     });
   }
 
-  // 4. Handle Infinity / Normalization prep
+  // 5. Handle Infinity / Normalization prep
   const finiteDistances = rawEntries
     .map(e => e.distanceKm)
     .filter(d => d !== Infinity);
@@ -206,14 +202,12 @@ export async function matchExporterUsingCity(
   const distList = rawEntries.map(e => (e.distanceKm === Infinity ? maxDist : e.distanceKm));
   const availList = rawEntries.map(e => e.rawAvail);
 
-  // 5. Normalize
+  // 6. Normalize
   const dNorm = normalize(distList);
   const aNorm = normalize(availList);
 
-  // 6. Final Scoring
+  // 7. Final Scoring
   const scored: ScoredProfile[] = rawEntries.map((entry, i) => {
-    // Score calculation: lower is better (weighted sum)
-    // distance_weight * norm_dist + availability_weight * (1 - norm_avail)
     const score = (distanceWeight * dNorm[i]) + (availabilityWeight * (1.0 - aNorm[i]));
 
     return {
@@ -221,11 +215,10 @@ export async function matchExporterUsingCity(
       qa_name: entry.profile.user ? entry.profile.user.name : "Unknown",
       distance_km: entry.distanceKm === Infinity ? null : entry.distanceKm,
       raw_availability: entry.rawAvail,
-      score: parseFloat(score.toFixed(4)), // round to 4 decimals
+      score: parseFloat(score.toFixed(4)),
     };
   });
 
-  // Sort by score (ascending -> lower is better)
   scored.sort((a, b) => a.score - b.score);
 
   return {

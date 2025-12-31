@@ -433,7 +433,7 @@ export function BatchSubmission() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
                                     <select required value={formData.cropType} onChange={(e) => setFormField('cropType', e.target.value)} 
                                         className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
-                                        <option value="" className="text-slate-400">Select crop type</option>
+                                        <option value="" className="text-slate-700">Select crop type</option>
                                         {cropTypes.map(crop => <option key={crop} value={crop}>{crop}</option>)}
                                     </select>
                                 </div>
@@ -455,26 +455,26 @@ export function BatchSubmission() {
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Farm Location <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g., Green Valley Farms, Punjab" value={formData.location} onChange={(e) => handleInputChange('location', e.target.value)} 
-                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Pincode/Zip <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g. 110001" value={formData.pincode} onChange={(e) => handleInputChange('pincode', e.target.value)} 
-                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Harvest Date <span className="text-rose-500">*</span></label>
                                     <input type="date" required value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                        className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Quantity <span className="text-rose-500">*</span></label>
                                     <div className="flex gap-3">
                                         <input type="number" required placeholder="e.g. 5000" value={formData.quantity} onChange={(e) => handleInputChange('quantity', e.target.value)} 
-                                            className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                            className="text-slate-700 flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
                                         <select value={formData.unit} onChange={(e) => handleInputChange('unit', e.target.value)} 
-                                            className="w-32 px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium">
+                                            className="text-slate-700 w-32 px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium">
                                             {units.map(u => <option key={u} value={u}>{u}</option>)}
                                         </select>
                                     </div>
