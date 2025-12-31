@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
 import { useVoiceNav } from '@/contexts/VoiceContext'; // 1. Ensure context is imported
+import { findBestMatchAction } from '@/app/actions/match-actions';
 
 // --- Types ---
 interface FormData {
@@ -40,10 +41,11 @@ interface Batch {
     farmPhotos: string[];
 }
 
+
 // --- Component ---
 export function BatchSubmission() {
     const { userEmail } = useRole();
-    const { currentView, navigateTo } = useVoiceNav(); // 2. Consume Voice Context 
+    const { currentView, navigateTo, formData, setFormField} = useVoiceNav(); // 2. Consume Voice Context 
 
     // DATA STATE
     const [batches, setBatches] = useState<Batch[]>([]);
@@ -53,6 +55,29 @@ export function BatchSubmission() {
     // VIEW STATE: 'list' | 'form' | 'success' | 'detail'
     const [view, setView] = useState<'list' | 'form' | 'success' | 'detail'>('list');
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+
+    const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  // Hardcoded inputs for demo - you can replace these with form inputs
+  const pincode = "400092"; 
+  const tests = ["mositure"];
+    
+  const handleRunMatch = async () => {
+    setLoading(true);
+    setResult(null);
+
+    // CALL THE SERVER ACTION HERE
+    const response = await findBestMatchAction(pincode, tests);
+
+    if (response.success) {
+      setResult(response.data);
+    } else {
+      alert(response.error);
+    }
+    console.log("Result: ", response)
+    setLoading(false);
+  };
 
     // 3. EFFECT: Listen for Voice Navigation commands
     useEffect(() => {
@@ -77,16 +102,7 @@ export function BatchSubmission() {
     const photoInputRef = useRef<HTMLInputElement>(null);
 
     // FORM STATE
-    const [formData, setFormData] = useState<FormData>({
-        cropType: '',
-        quantity: '',
-        unit: 'kg',
-        location: '',
-        pincode: '',
-        harvestDate: '',
-        destinationCountry: '',
-    });
-
+    
     const [labReports, setLabReports] = useState<File[]>([]);
     const [farmPhotos, setFarmPhotos] = useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -132,7 +148,7 @@ export function BatchSubmission() {
 
     // --- Handlers ---
     const handleInputChange = (field: keyof FormData, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormField(field, value);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'lab' | 'photo') => {
@@ -217,7 +233,13 @@ export function BatchSubmission() {
             setSelectedBatch(newlyCreatedBatch);
             setView('success');
             
-            setFormData({ cropType: '', quantity: '', unit: 'kg', location: '', pincode: '', harvestDate: '', destinationCountry: '' });
+            setFormField('cropType', '');
+            setFormField('quantity', '');
+            setFormField('unit', 'kg');
+            setFormField('location', '');
+            setFormField('pincode', '');
+            setFormField('harvestDate', '');
+            setFormField('destinationCountry', '');
             setLabReports([]);
             setFarmPhotos([]);
         } catch (error: any) {
@@ -409,7 +431,7 @@ export function BatchSubmission() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
-                                    <select required value={formData.cropType} onChange={(e) => handleInputChange('cropType', e.target.value)} 
+                                    <select required value={formData.cropType} onChange={(e) => setFormField('cropType', e.target.value)} 
                                         className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
                                         <option value="" className="text-slate-400">Select crop type</option>
                                         {cropTypes.map(crop => <option key={crop} value={crop}>{crop}</option>)}
@@ -417,7 +439,7 @@ export function BatchSubmission() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Destination Country <span className="text-rose-500">*</span></label>
-                                    <select required value={formData.destinationCountry} onChange={(e) => handleInputChange('destinationCountry', e.target.value)} 
+                                    <select required value={formData.destinationCountry} onChange={(e) => setFormField('destinationCountry', e.target.value)} 
                                         className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
                                         <option value="" className="text-slate-400">Select destination</option>
                                         {countries.map(country => <option key={country} value={country}>{country}</option>)}
@@ -506,7 +528,7 @@ export function BatchSubmission() {
                             <button type="button" onClick={() => handleSetView('list')} className="px-6 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                                 Cancel
                             </button>
-                            <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50">
+                            <button type="submit" onClick={handleRunMatch} disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50">
                                 {isSubmitting ? 'Submitting...' : 'Submit Batch'}
                             </button>
                         </div>
