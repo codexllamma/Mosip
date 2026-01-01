@@ -1,10 +1,12 @@
-FROM mosip/inji-certify:0.13.1
+FROM mosipid/inji-certify-service-with-plugins:0.13.1
 
-# Copy your properties file into the container
-COPY certify-postgres-landregistry.properties /mosip/inji-certify/config/certify.properties
+# Docker creates this inside the container automatically
+COPY inji-certify/config/certify.properties /home/mosip/config/certify.properties
 
-# Expose the port Inji Certify runs on
+# Ensure the templates folder is created and populated
+RUN mkdir -p /home/mosip/config/templates
+COPY inji-certify/config/templates/ /home/mosip/config/templates/
+
 EXPOSE 8080
 
-# Command to run the JAR with your properties file
-ENTRYPOINT ["java", "-jar", "certify-service.jar", "--spring.config.location=file:/mosip/inji-certify/config/certify.properties"]
+ENTRYPOINT ["java", "-jar", "certify-service-with-plugins.jar", "--spring.config.location=file:/home/mosip/config/certify.properties"]
