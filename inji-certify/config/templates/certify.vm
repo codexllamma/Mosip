@@ -1,0 +1,37 @@
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/security/suites/ed25519-2020/v1",
+    {
+      "productType": "https://schema.org/category",
+      "origin": "https://schema.org/countryOfOrigin",
+      "moisture": "https://agri-schema.org/moisture",
+      "pesticideResidue": "https://agri-schema.org/pesticide"
+    }
+  ],
+  "type": ["VerifiableCredential", "AgriQualityCertificate"],
+  "issuer": {
+    "id": "$issuer.id",
+    "name": "AgriQCert QA Agency"
+  },
+  "issuanceDate": "$issuanceDate",
+  "credentialSubject": {
+    "id": "did:example:batch:$data.batchNumber",
+    "batchNumber": "$data.batchNumber",
+    "product": {
+      "type": "$data.productType",
+      "origin": "$data.origin",
+      "destination": "$data.destinationCountry",
+      "quantity": "$data.quantity",
+      "unit": "$data.unit"
+    },
+    "qualityMetrics": {
+      "moisture": "$data.moisture",
+      "pesticideResidue": "$data.pesticideResidue",
+      "isOrganic": $data.organic,
+      "grade": "$data.grade",
+      "isoCode": "$data.isoCode"
+    },
+    "inspectionNotes": "$!data.notes"
+  }
+}
