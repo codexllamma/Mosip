@@ -1,7 +1,7 @@
 FROM mosip/inji-certify:latest
 
 # Copy your properties file into the container
-COPY certify-postgres-landregistry.properties /home/mosip/config/certify.properties
+COPY certify-postgres-landregistry.properties /mosip/inji-certify/config/certify.properties
 
 # Expose the port Inji Certify runs on
 EXPOSE 8080
