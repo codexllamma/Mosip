@@ -1,8 +1,9 @@
-// app/verify/[certId]/page.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
+// 👇 CHANGE 1: Import useParams to handle dynamic ID safely
+import { useParams } from 'next/navigation'; 
+import { useLocale } from 'next-intl';
 import { 
     CheckCircle, XCircle, Loader2, Package, Calendar, ShieldCheck, FileText, 
     ExternalLink, Globe, Droplet, Leaf, Gauge, MapPin, Hash, Microscope 
@@ -57,12 +58,6 @@ interface VerificationData {
     warnings: string[];
 }
 
-interface VerifyPageProps {
-    params: {
-        certId: string;
-    };
-}
-
 // Helper component for displaying single details
 const DetailItem = ({ icon: Icon, label, value, className = '' }: { icon: any, label: string, value: string | number | null | undefined, className?: string }) => {
     const displayValue = value === null || value === undefined ? 'N/A' : String(value);
@@ -78,16 +73,22 @@ const DetailItem = ({ icon: Icon, label, value, className = '' }: { icon: any, l
 };
 
 // Main Component
-export default function VerifyPage({ params }: VerifyPageProps) {
-    const { certId } = params;
+export default function VerifyPage() {
+    // 👇 CHANGE 2: Get params via hook instead of props
+    const params = useParams();
+    const certId = params.certId as string;
+    const locale = useLocale();
+
     const [data, setData] = useState<VerificationData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!certId) return;
+
         async function fetchVerificationData() {
             try {
-                // Fetching from the API route you defined
+                // Note: API routes are global, so /api/... is still correct
                 const response = await fetch(`/api/verify/${certId}`);
                 const result = await response.json();
 

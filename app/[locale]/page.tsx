@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+// 👇 CHANGE 1: Import localized router instead of next/navigation
+import { useRouter } from '@/i18n/routing'; 
+// 👇 CHANGE 2: Import useLocale to get current language
+import { useLocale } from 'next-intl'; 
 import { SessionProvider, useSession, signOut } from "next-auth/react";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { Layout } from "@/components/Layout";
@@ -13,7 +16,7 @@ import { InspectionRequests } from '@/components/InspectionRequests';
 import DigitalPassports from '@/components/DigitalPassports';
 import { AuditLogs } from '@/components/AuditLogs';
 import InjiVerify from '@/components/InjiVerify';
-import { Profile } from '@/components/Profile'; // [NEW] Import Profile Component
+import { Profile } from '@/components/Profile'; 
 import { VoiceProvider, useVoiceNav } from '@/contexts/VoiceContext';
 
 // --- SUB-COMPONENT: View Router ---
@@ -46,11 +49,13 @@ function AppContent({ handleLogout }: { handleLogout: () => void }) {
 // --- SUB-COMPONENT: Auth Checker ---
 function AuthenticatedApp() {
   const { status } = useSession();
-  const router = useRouter();
+  const router = useRouter(); // This is now the locale-aware router
+  const locale = useLocale(); // Gets 'en', 'fr', etc.
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      // automatically pushes to /en/login or /fr/login
+      router.push('/login'); 
     }
   }, [status, router]);
 
@@ -65,7 +70,8 @@ function AuthenticatedApp() {
   if (status === 'unauthenticated') return null;
 
   const handleLogout = () => {
-    signOut({ callbackUrl: '/login' });
+    // Explicitly include locale to avoid extra redirects
+    signOut({ callbackUrl: `/${locale}/login` });
   };
 
   return (

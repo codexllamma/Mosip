@@ -1,0 +1,260 @@
+{
+  "Metadata": {
+    "title": "Mosip App",
+    "description": "Multilingual Mosip Application"
+  },
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "batch-submission": "Batch Submission",
+    "inspection-requests": "Inspection Requests",
+    "digital-passports": "Digital Passports",
+    "audit-logs": "Audit Logs",
+    "inji-verify": "Inji Verify",
+    "profile": "Profile"
+  },
+  "Common": {
+    "logout": "Logout",
+    "app_name": "Mosip"
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Live System Data",
+    "loading_error": "Error loading dashboard data.",
+    "stats": {
+      "batches_submitted": "Batches Submitted",
+      "pending_inspections": "Pending Inspections",
+      "passports_issued": "Passports Issued",
+      "avg_approval": "Avg. Approval",
+      "active": "Active",
+      "awaiting_qa": "Awaiting QA review",
+      "verifiable_creds": "Verifiable Credentials",
+      "target": "Target: 24h"
+    },
+    "sections": {
+      "export_volume": "Export Volume by Crop",
+      "recent_activity": "Recent Activity"
+    },
+    "empty": {
+      "no_data": "No data available yet.",
+      "no_activity": "No recent activity."
+    }
+  },
+  "BatchSubmission": {
+    "list_title": "My Batches",
+    "list_subtitle": "Monitor the status of your exports in the supply chain.",
+    "new_batch_btn": "New Batch",
+    "loading": "Loading Batches...",
+    "empty_title": "No batches submitted yet.",
+    "empty_subtitle": "Use the 'New Batch' button to start your first export.",
+    "table": {
+      "id": "Batch ID",
+      "crop": "Crop",
+      "destination": "Destination",
+      "status": "Status"
+    },
+    "detail": {
+      "back": "Back to My Batches",
+      "identity": "Batch Identity",
+      "tests_title": "Required Tests",
+      "no_tests": "No specific tests requested.",
+      "crop_type": "Crop Type",
+      "qty": "Quantity",
+      "date": "Harvest Date",
+      "origin": "Origin Location",
+      "pincode": "Pincode/Zip",
+      "market": "Target Market"
+    },
+    "form": {
+      "title": "New Batch Submission",
+      "subtitle": "Enter crop details and upload required documentation",
+      "section_product": "Product Details",
+      "section_logistics": "Logistics & Quantity",
+      "section_inspections": "Required Inspections",
+      "inspections_desc": "Select all tests required for this batch. This information is used to match you with a certified QA Agency.",
+      "section_docs": "Documentation",
+      "label_crop": "Crop Type",
+      "label_dest": "Destination Country",
+      "label_origin": "Farm Location",
+      "label_pincode": "Pincode/Zip",
+      "label_date": "Harvest Date",
+      "label_qty": "Quantity",
+      "label_lab": "Lab Reports (Optional PDF)",
+      "label_photos": "Farm Photos (Optional)",
+      "placeholder_crop": "Select crop type",
+      "placeholder_dest": "Select destination",
+      "placeholder_origin": "e.g., Green Valley Farms, Punjab",
+      "upload_reports": "Upload existing reports",
+      "upload_photos": "Upload field photos",
+      "cancel": "Cancel",
+      "submit": "Submit Batch",
+      "processing": "Processing..."
+    },
+    "success": {
+      "title": "Batch Submitted!",
+      "subtitle": "is now queued for matching.",
+      "back_btn": "Back to My Batches Dashboard"
+    }
+  },
+  
+  "Inspections": {
+    "title": "Inspection Requests",
+    "subtitle": "Review and record quality inspection results",
+    "search_placeholder": "Search by batch ID, exporter, or crop type...",
+    "table": {
+      "id": "Batch ID",
+      "exporter": "Exporter",
+      "crop": "Crop Type",
+      "qty": "Quantity",
+      "date": "Date Submitted",
+      "status": "Status",
+      "action": "Action",
+      "record": "Record Results"
+    },
+    "empty": "No pending inspection requests",
+    "modal": {
+      "title": "Record Inspection Results",
+      "moisture": "Moisture Level (%)",
+      "pesticide": "Pesticide Content (ppm)",
+      "grade": "Quality Grade",
+      "organic": "Organic Certified",
+      "notes": "Additional Notes",
+      "notes_placeholder": "Enter any additional observations or remarks...",
+      "cancel": "Cancel",
+      "submit": "Issue Verifiable Credential",
+      "issuing": "Issuing..."
+    }
+  },
+  "DigitalPassports": {
+    "title": "Digital Product Passports",
+    "subtitle": "Verifiable credentials for approved export batches",
+    "loading": "Loading digital passports...",
+    "error_title": "Error",
+    "empty_title": "No Passports Issued Yet",
+    "empty_subtitle": "Digital passports are automatically generated when a batch is certified by a QA Agency.",
+    "active_count": "{count} Active {count, plural, one {Passport} other {Passports}}",
+    "status_verified": "Verified",
+    "status_expired": "Expired",
+    "label_exporter": "Exporter",
+    "label_issued": "Issued Date",
+    "label_grade": "Quality Grade",
+    "btn_view": "View Passport",
+    "modal": {
+      "title": "Digital Product Passport",
+      "standard": "Verifiable Credential (W3C Standard)",
+      "no_qr": "No QR Data",
+      "label_batch": "Batch ID",
+      "label_product": "Product",
+      "verify_link": "Verify Legitimacy on Blockchain",
+      "section_quality": "Quality Inspection Data",
+      "moisture": "Moisture Content",
+      "pesticide": "Pesticide Residue",
+      "grade": "Quality Grade",
+      "organic": "Organic Certified",
+      "organic_yes": "Yes",
+      "organic_no": "No",
+      "section_logistics": "Logistics & Origin",
+      "origin": "Origin Location",
+      "destination": "Destination",
+      "quantity": "Quantity",
+      "status": "Current Status",
+      "signed_by": "Cryptographically signed by"
+    }
+  },
+  "AuditLogs": {
+    "title": "Audit Logs",
+    "subtitle": "Complete history of all system activities",
+    "filter_all_types": "All Types",
+    "filter_batches": "Batches",
+    "filter_inspections": "Inspections",
+    "filter_credentials": "Credentials",
+    "showing_count": "Showing {filtered} of {total} entries",
+    "table": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "action": "Action",
+      "description": "Description",
+      "type": "Type"
+    },
+    "empty": "No audit logs found",
+    "empty_hint": "Try adjusting your filters",
+    "system_actor": "System",
+    "descriptions": {
+      "submitted": "New {crop} batch #{id} submitted",
+      "inspection": "Inspection completed for batch #{id}",
+      "passport": "Digital passport issued for batch #{id}",
+      "approved": "Batch #{id} approved"
+    }
+  },
+  
+  "InjiVerify": {
+    "title": "Trust Verify",
+    "subtitle": "Securely verify Digital Product Passports and Batch Authenticity",
+    "btn_upload": "Upload Image",
+    "hint_upload": "From gallery",
+    "btn_scan": "Scan Camera",
+    "btn_cancel": "Cancel Scan",
+    "hint_scan": "Real-time verify",
+    "hint_live": "Live Viewfinder",
+    "align_qr": "Align QR code within the frame",
+    "validating": "Validating Certificate...",
+    "error_title": "Verification Error",
+    "error_camera": "Camera access denied. Please check your browser permissions.",
+    "error_no_qr": "No valid QR code found in this image.",
+    "error_network": "Network error. Please ensure the QR contains a valid verification link.",
+    "error_not_found": "This certificate could not be verified in our records.",
+    "status_valid": "VALID",
+    "status_invalid": "INVALID",
+    "label_batch": "Batch ID",
+    "label_exporter": "Exporter",
+    "label_issuer": "Issuer",
+    "label_grade": "Quality Grade",
+    "label_organic": "Organic Status",
+    "organic_yes": "Certified Organic",
+    "organic_no": "Conventional",
+    "btn_proof": "View Cryptographic Proof"
+  },
+    "Auth": {
+    "hero_headline": "Global Trade, <br/> Simplified.",
+    "hero_subheadline": "The next-generation export compliance platform. Secure, transparent, and built for trust.",
+    "trusted_by": "Trusted by 500+ exporters",
+    "login_title": "Welcome Back",
+    "signup_title": "Create Account",
+    "login_desc": "Enter your credentials to access the workspace.",
+    "signup_desc": "Join the network today. No credit card required.",
+    "label_name": "Full Name",
+    "placeholder_name": "Enter your name",
+    "label_role": "Account Type",
+    "placeholder_role": "Select your role",
+    "label_email": "Email Address",
+    "placeholder_email": "name@company.com",
+    "label_password": "Password",
+    "placeholder_password": "••••••••",
+    "forgot": "Forgot?",
+    "btn_signin": "Sign In",
+    "btn_signup": "Create Account",
+    "processing": "Processing...",
+    "demo_access": "Instant Demo Access",
+    "one_click": "One-click login",
+    "footer_new": "New to the platform?",
+    "footer_existing": "Already have an account?",
+    "link_signup": "Create an account",
+    "link_login": "Log in",
+    "error_invalid": "Invalid email or password.",
+    "error_generic": "Something went wrong. Please try again."
+  },
+  "Roles": {
+    "EXPORTER_SELECT": "Exporter (Submit Batches)",
+    "QA_SELECT": "QA Agency (Inspect & Certify)",
+    "IMPORTER_SELECT": "Importer (View Passports)",
+    "ADMIN_SELECT": "Administrator",
+    "EXPORTER_LABEL": "Exporter",
+    "EXPORTER_DESC": "Docs & Compliance",
+    "QA_LABEL": "QA Agency",
+    "QA_DESC": "Inspection & Certs",
+    "IMPORTER_LABEL": "Importer",
+    "IMPORTER_DESC": "Marketplace Access",
+    "ADMIN_LABEL": "Admin",
+    "ADMIN_DESC": "System Control"
+  }
+
+}

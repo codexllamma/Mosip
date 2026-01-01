@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+// 👇 CHANGE 1: Use the localized router
+import { useRouter } from '@/i18n/routing'; 
+// 👇 CHANGE 2: Get current language
+import { useLocale, useTranslations } from 'next-intl';
 import { signIn } from 'next-auth/react';
 import { 
   User, ShieldCheck, Globe, Settings, Mail, Lock, 
@@ -22,6 +25,10 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
+  const locale = useLocale(); 
+  const t = useTranslations('Auth');
+  const tRoles = useTranslations('Roles');
+
   const [isLogin, setIsLogin] = useState(true);
   
   // Form States
@@ -43,15 +50,20 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         // LOGIN FLOW
-        const result = await signIn('credentials', { redirect: false, email, password });
+        const result = await signIn('credentials', { 
+            redirect: false, 
+            email, 
+            password,
+            // 👇 Ensure we redirect to the localized dashboard
+            callbackUrl: `/${locale}/dashboard`
+        });
         
         if (result?.error) {
-          setError("Invalid email or password.");
+          setError(t('error_invalid'));
           setLoading(false);
           return;
         }
 
-        // Bridge Session -> LocalStorage (Optional, if you still use localStorage elsewhere)
         await finalizeLogin();
 
       } else {
@@ -78,7 +90,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || t('error_generic'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +107,8 @@ export default function LoginPage() {
       const result = await signIn('credentials', { 
         redirect: false, 
         email: demoEmail, 
-        password: demoPassword 
+        password: demoPassword,
+        callbackUrl: `/${locale}/dashboard`
       });
 
       if (!result?.error) {
@@ -118,12 +131,14 @@ export default function LoginPage() {
         }),
       });
 
+      // With the API fix, existing users will return 200 (healed) or 201 (created)
       if (res.ok) {
-        // 3. Registration successful. Login automatically.
+        // 3. Registration/Healing successful. Login automatically.
         const retryResult = await signIn('credentials', { 
           redirect: false, 
           email: demoEmail, 
-          password: demoPassword 
+          password: demoPassword,
+          callbackUrl: `/${locale}/dashboard`
         });
         
         if (!retryResult?.error) {
@@ -143,8 +158,6 @@ export default function LoginPage() {
 
   // Helper to handle the post-login redirect (used by both standard and demo auth)
   const finalizeLogin = async (customRedirect?: string) => {
-    // In a real app with NextAuth, the session is handled automatically.
-    // We fetch it here just to be safe or set legacy localStorage flags.
     try {
         const sessionRes = await fetch('/api/auth/session');
         if (sessionRes.ok) {
@@ -157,18 +170,18 @@ export default function LoginPage() {
     }
     
     // Redirect based on intent or default
-    router.push(customRedirect || '/');
+    // We default to /dashboard to match your new structure
+    router.push(customRedirect || '/dashboard');
     router.refresh();
   };
 
-  // --- UPDATED DEMO ROLES CONFIG ---
-  // We added unique emails so each button creates a distinct user in the DB
+  // --- DEMO ROLES CONFIG ---
   const demoRoles = [
     { 
       role: 'EXPORTER', 
       email: 'exporter@demo.com', 
-      label: 'Exporter', 
-      description: 'Docs & Compliance', 
+      label: tRoles('EXPORTER_LABEL'), 
+      description: tRoles('EXPORTER_DESC'), 
       icon: User, 
       color: 'from-emerald-500 to-emerald-700',
       path: '/' 
@@ -176,8 +189,8 @@ export default function LoginPage() {
     { 
       role: 'QA_AGENCY', 
       email: 'qa@demo.com', 
-      label: 'QA Agency', 
-      description: 'Inspection & Certs', 
+      label: tRoles('QA_LABEL'), 
+      description: tRoles('QA_DESC'), 
       icon: ShieldCheck, 
       color: 'from-blue-500 to-blue-700',
       path: '/' // Redirects straight to their work
@@ -185,8 +198,8 @@ export default function LoginPage() {
     { 
       role: 'IMPORTER', 
       email: 'importer@demo.com', 
-      label: 'Importer', 
-      description: 'Marketplace Access', 
+      label: tRoles('IMPORTER_LABEL'), 
+      description: tRoles('IMPORTER_DESC'), 
       icon: Globe, 
       color: 'from-purple-500 to-purple-700',
       path: '/' 
@@ -194,8 +207,8 @@ export default function LoginPage() {
     { 
       role: 'ADMIN', 
       email: 'admin@demo.com', 
-      label: 'Admin', 
-      description: 'System Control', 
+      label: tRoles('ADMIN_LABEL'), 
+      description: tRoles('ADMIN_DESC'), 
       icon: Settings, 
       color: 'from-gray-600 to-gray-800',
       path: '/' 
@@ -219,10 +232,10 @@ export default function LoginPage() {
              <Globe className="h-8 w-8 text-emerald-600" />
           </div>
           <h1 className="text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-800 to-teal-900">
-            Global Trade, <br/> Simplified.
+            {t.rich('hero_headline', { br: () => <br/> })}
           </h1>
           <p className="text-lg text-slate-700 leading-relaxed max-w-md font-medium">
-            The next-generation export compliance platform. Secure, transparent, and built for trust.
+            {t('hero_subheadline')}
           </p>
           <div className="flex items-center space-x-4 pt-4">
             <div className="flex -space-x-2">
@@ -230,7 +243,7 @@ export default function LoginPage() {
                 <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-slate-200" />
               ))}
             </div>
-            <p className="text-sm font-medium text-slate-600">Trusted by 500+ exporters</p>
+            <p className="text-sm font-medium text-slate-600">{t('trusted_by')}</p>
           </div>
         </div>
 
@@ -238,12 +251,10 @@ export default function LoginPage() {
         <Card className="border-0 shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
           <CardHeader className="space-y-1 pb-2 border-b border-slate-100 bg-slate-50/50 p-8">
             <CardTitle className="text-2xl font-bold text-slate-900">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {isLogin ? t('login_title') : t('signup_title')}
             </CardTitle>
             <CardDescription className="text-base text-slate-500">
-              {isLogin 
-                ? 'Enter your credentials to access the workspace.' 
-                : 'Join the network today. No credit card required.'}
+              {isLogin ? t('login_desc') : t('signup_desc')}
             </CardDescription>
           </CardHeader>
           
@@ -261,12 +272,12 @@ export default function LoginPage() {
               {!isLogin && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-slate-700 font-medium">Full Name</Label>
+                    <Label htmlFor="name" className="text-slate-700 font-medium">{t('label_name')}</Label>
                     <div className="relative group">
                         <UserPlus className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                         <Input
                         id="name"
-                        placeholder="Enter your name"
+                        placeholder={t('placeholder_name')}
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         className="text-slate-700 pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -277,25 +288,23 @@ export default function LoginPage() {
 
                   {/* ROLE SELECTION DROPDOWN */}
                   <div className="space-y-2">
-                    <Label htmlFor="role" className="text-slate-700 font-medium">Account Type</Label>
+                    <Label htmlFor="role" className="text-slate-700 font-medium">{t('label_role')}</Label>
                     <Select onValueChange={setRole} defaultValue={role}>
                       <SelectTrigger className="h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900">
-                        <SelectValue placeholder="Select your role" />
+                        <SelectValue placeholder={t('placeholder_role')} />
                       </SelectTrigger>
-                      
-                      {/* Added bg-white, z-50, and shadow-xl to fix transparency */}
                       <SelectContent className="bg-white border-slate-200 text-slate-700 shadow-xl z-50 max-h-[200px]">
                         <SelectItem value="EXPORTER" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
-                          Exporter (Submit Batches)
+                          {tRoles('EXPORTER_SELECT')}
                         </SelectItem>
                         <SelectItem value="QA_AGENCY" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
-                          QA Agency (Inspect & Certify)
+                          {tRoles('QA_SELECT')}
                         </SelectItem>
                         <SelectItem value="IMPORTER" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
-                          Importer (View Passports)
+                          {tRoles('IMPORTER_SELECT')}
                         </SelectItem>
                         <SelectItem value="ADMIN" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
-                          Administrator
+                          {tRoles('ADMIN_SELECT')}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -304,13 +313,13 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-medium">Email Address</Label>
+                <Label htmlFor="email" className="text-slate-700 font-medium">{t('label_email')}</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@company.com"
+                    placeholder={t('placeholder_email')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="text-black pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -321,15 +330,15 @@ export default function LoginPage() {
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
-                  {isLogin && <a href="#" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Forgot?</a>}
+                  <Label htmlFor="password" className="text-slate-700 font-medium">{t('label_password')}</Label>
+                  {isLogin && <a href="#" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">{t('forgot')}</a>}
                 </div>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="••••••••"
+                    placeholder={t('placeholder_password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="text-black pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -346,11 +355,11 @@ export default function LoginPage() {
                 {loading ? (
                   <div className="flex items-center justify-center gap-2">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Processing...</span>
+                    <span>{t('processing')}</span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
-                    <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                    <span>{isLogin ? t('btn_signin') : t('btn_signup')}</span>
                     <ArrowRight className="h-4 w-4" />
                   </div>
                 )}
@@ -364,7 +373,7 @@ export default function LoginPage() {
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-3 text-slate-400 font-medium tracking-wider flex items-center gap-1">
                   <Zap className="h-3 w-3 text-emerald-500 fill-emerald-500" /> 
-                  Instant Demo Access
+                  {t('demo_access')}
                 </span>
               </div>
             </div>
@@ -377,21 +386,21 @@ export default function LoginPage() {
                   <button
                     key={demo.role}
                     disabled={loading}
-                    onClick={() => handleDemoLogin(demo.role, demo.email,demo.path)}
+                    onClick={() => handleDemoLogin(demo.role, demo.email, demo.path)}
                     className="group relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 hover:shadow-md hover:border-emerald-200 transition-all text-left disabled:opacity-50"
                   >
-                     <div className={`absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                      <div className={`absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
                         <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${demo.color}`} />
-                     </div>
-                     <div className="flex items-center gap-3">
-                       <div className={`p-2 rounded-lg bg-gradient-to-br ${demo.color} text-white shadow-sm`}>
-                         <Icon className="h-4 w-4" />
-                       </div>
-                       <div>
-                         <p className="text-sm font-bold text-slate-700 group-hover:text-emerald-800 transition-colors">{demo.label}</p>
-                         <p className="text-[10px] text-slate-400 leading-tight">One-click login</p>
-                       </div>
-                     </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${demo.color} text-white shadow-sm`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-700 group-hover:text-emerald-800 transition-colors">{demo.label}</p>
+                          <p className="text-[10px] text-slate-400 leading-tight">{t('one_click')}</p>
+                        </div>
+                      </div>
                   </button>
                 );
               })}
@@ -400,12 +409,12 @@ export default function LoginPage() {
             {/* Footer Toggle */}
             <div className="text-center">
               <p className="text-sm text-slate-500">
-                {isLogin ? "New to the platform? " : "Already have an account? "}
+                {isLogin ? t('footer_new') + " " : t('footer_existing') + " "}
                 <button 
                   onClick={() => { setIsLogin(!isLogin); setError(null); }} 
                   className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors"
                 >
-                  {isLogin ? "Create an account" : "Log in"}
+                  {isLogin ? t('link_signup') : t('link_login')}
                 </button>
               </p>
             </div>

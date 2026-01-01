@@ -1,3 +1,4 @@
+// app/api/inspections/pending/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 4. Map Prisma Data to Frontend Interface
+    // 4. Map Prisma Data to Frontend Interface
     const formattedBatches = batches.map(batch => ({
       id: batch.id,
       batch_number: batch.batchNumber,
@@ -50,11 +52,10 @@ export async function GET(req: NextRequest) {
       destination_country: batch.destinationCountry,
       harvest_date: batch.harvestDate,
       submitted_at: batch.updatedAt,  
-      status: batch.status.toLowerCase(),
+      // 👇 KEEP ORIGINAL STATUS FOR LOGIC
+      status: batch.status, 
       variety: batch.variety,
       unit: batch.unit,
-      
-      // Ensure these match your frontend expectations
       lab_reports: [],
       farm_photos: []
     }));

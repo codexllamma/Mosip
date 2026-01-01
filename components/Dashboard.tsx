@@ -1,5 +1,9 @@
+"use client";
+
 import { useEffect, useState } from 'react';
 import { Package, ClipboardCheck, ShieldCheck, Clock, TrendingUp } from 'lucide-react';
+// 👇 CHANGE 1: Import translation hook
+import { useTranslations, useLocale } from 'next-intl';
 
 interface DashboardData {
   stats: {
@@ -16,11 +20,14 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const t = useTranslations('Dashboard');
+  const locale = useLocale(); // <--- GET CURRENT LANGUAGE (e.g., 'fr')
+
   useEffect(() => {
     async function loadData() {
       try {
-        // --- CALL THE API INSTEAD OF SUPABASE DIRECTLY ---
-        const res = await fetch('/api/dashboard');
+        // 👇 CHANGE: Pass the locale to the API
+        const res = await fetch(`/api/dashboard?lang=${locale}`);
         if (!res.ok) throw new Error("Failed to fetch dashboard data");
         const json = await res.json();
         setData(json);
@@ -31,7 +38,7 @@ export function Dashboard() {
       }
     }
     loadData();
-  }, []);
+  }, [locale]);
 
   if (loading) {
     return (
@@ -41,7 +48,7 @@ export function Dashboard() {
     );
   }
 
-  if (!data) return <div className="p-6 text-red-500">Error loading dashboard data.</div>;
+  if (!data) return <div className="p-6 text-red-500">{t('loading_error')}</div>;
 
   const { stats, cropVolumes, recentActivity } = data;
   const maxVolume = Math.max(...cropVolumes.map(c => c.volume), 1);
@@ -49,9 +56,10 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
+        {/* 👇 CHANGE 3: Translate Title & Subtitle */}
+        <h1 className="text-3xl font-semibold text-slate-900">{t('title')}</h1>
         <div className="text-sm text-slate-500">
-          Live System Data
+          {t('subtitle')}
         </div>
       </div>
 
@@ -60,7 +68,8 @@ export function Dashboard() {
         <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Batches Submitted</p>
+              {/* 👇 CHANGE 4: Translate Label */}
+              <p className="text-sm font-medium text-slate-600">{t('stats.batches_submitted')}</p>
               <p className="text-3xl font-semibold text-slate-900 mt-2">{stats.batchesSubmitted}</p>
             </div>
             <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center">
@@ -69,14 +78,15 @@ export function Dashboard() {
           </div>
           <div className="mt-4 flex items-center gap-1 text-sm text-emerald-600">
             <TrendingUp className="w-4 h-4" />
-            <span>Active</span>
+            {/* 👇 CHANGE 5: Translate Status */}
+            <span>{t('stats.active')}</span>
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Pending Inspections</p>
+              <p className="text-sm font-medium text-slate-600">{t('stats.pending_inspections')}</p>
               <p className="text-3xl font-semibold text-slate-900 mt-2">{stats.pendingInspections}</p>
             </div>
             <div className="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center">
@@ -84,14 +94,14 @@ export function Dashboard() {
             </div>
           </div>
           <div className="mt-4 text-sm text-slate-500">
-            Awaiting QA review
+            {t('stats.awaiting_qa')}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Passports Issued</p>
+              <p className="text-sm font-medium text-slate-600">{t('stats.passports_issued')}</p>
               <p className="text-3xl font-semibold text-slate-900 mt-2">{stats.passportsIssued}</p>
             </div>
             <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center">
@@ -99,14 +109,14 @@ export function Dashboard() {
             </div>
           </div>
           <div className="mt-4 text-sm text-slate-500">
-            Verifiable Credentials
+            {t('stats.verifiable_creds')}
           </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-600">Avg. Approval</p>
+              <p className="text-sm font-medium text-slate-600">{t('stats.avg_approval')}</p>
               <p className="text-3xl font-semibold text-slate-900 mt-2">{stats.avgApprovalTime}</p>
             </div>
             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
@@ -114,7 +124,7 @@ export function Dashboard() {
             </div>
           </div>
           <div className="mt-4 text-sm text-slate-500">
-            Target: 24h
+            {t('stats.target')}
           </div>
         </div>
       </div>
@@ -123,11 +133,13 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Volume Chart */}
         <div className="bg-white border border-slate-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">Export Volume by Crop</h2>
+          {/* 👇 CHANGE 6: Translate Header */}
+          <h2 className="text-lg font-semibold text-slate-900 mb-6">{t('sections.export_volume')}</h2>
           <div className="space-y-4">
             {cropVolumes.map((crop) => (
               <div key={crop.cropType}>
                 <div className="flex items-center justify-between mb-2">
+                  {/* Note: cropType is dynamic data (e.g., "Wheat"), we will handle this in Phase 3 */}
                   <span className="text-sm font-medium text-slate-700">{crop.cropType}</span>
                   <span className="text-sm text-slate-600">{(crop.volume).toFixed(0)} kg</span>
                 </div>
@@ -140,14 +152,14 @@ export function Dashboard() {
               </div>
             ))}
             {cropVolumes.length === 0 && (
-              <p className="text-slate-500 text-sm text-center py-8">No data available yet.</p>
+              <p className="text-slate-500 text-sm text-center py-8">{t('empty.no_data')}</p>
             )}
           </div>
         </div>
 
         {/* Recent Activity Feed */}
         <div className="bg-white border border-slate-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">Recent Activity</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-6">{t('sections.recent_activity')}</h2>
           <div className="space-y-4">
             {recentActivity.map((activity) => (
               <div key={activity.id} className="flex items-start gap-3 border-b border-slate-50 pb-3 last:border-0">
@@ -158,13 +170,14 @@ export function Dashboard() {
                   }`}
                 />
                 <div className="flex-1">
+                  {/* Note: Description is dynamic, handled in Phase 3 */}
                   <p className="text-sm text-slate-900 font-medium">{activity.description}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{activity.time}</p>
                 </div>
               </div>
             ))}
             {recentActivity.length === 0 && (
-              <p className="text-slate-500 text-sm text-center py-8">No recent activity.</p>
+              <p className="text-slate-500 text-sm text-center py-8">{t('empty.no_activity')}</p>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { 
   LayoutDashboard, 
   Upload, 
@@ -16,6 +16,8 @@ import {
 import { useRole } from "@/contexts/RoleContext";
 import { useVoiceNav } from "@/contexts/VoiceContext"; 
 import VoiceNav from './VoiceNav';
+// 👇 CHANGE 1: Import translation hook
+import { useTranslations } from 'next-intl';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,6 +28,11 @@ export function Layout({ children, onLogout }: LayoutProps) {
   const { role, userName } = useRole();
   const { currentView, navigateTo } = useVoiceNav(); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // 👇 CHANGE 2: Initialize translation hooks
+  const tSidebar = useTranslations('Sidebar');
+  const tCommon = useTranslations('Common');
+  const tRoles = useTranslations('Roles');
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['EXPORTER', 'QA_AGENCY', 'IMPORTER', 'ADMIN'] },
@@ -76,10 +83,11 @@ export function Layout({ children, onLogout }: LayoutProps) {
                     ? 'bg-emerald-800 text-white shadow-sm'
                     : 'text-emerald-100 hover:bg-emerald-800 hover:text-white'
                 } ${!isSidebarOpen && 'justify-center'}`}
-                title={!isSidebarOpen ? item.label : ''}
+                title={!isSidebarOpen ? tSidebar(item.id) : ''}
               >
                 <Icon className="w-5 h-5 min-w-[20px]" />
-                {isSidebarOpen && <span>{item.label}</span>}
+                {/* 👇 CHANGE 3: Use translation key instead of item.label */}
+                {isSidebarOpen && <span>{tSidebar(item.id)}</span>}
               </button>
             );
           })}
@@ -91,10 +99,10 @@ export function Layout({ children, onLogout }: LayoutProps) {
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-800 hover:text-white transition-colors ${
               !isSidebarOpen && 'justify-center'
             }`}
-            title="Log Out"
+            title={tCommon('logout')}
           >
             <LogOut className="w-5 h-5 min-w-[20px]" />
-            {isSidebarOpen && <span>Log Out</span>}
+            {isSidebarOpen && <span>{tCommon('logout')}</span>}
           </button>
         </div>
       </aside>
@@ -116,7 +124,11 @@ export function Layout({ children, onLogout }: LayoutProps) {
               <nav className="hidden md:flex text-sm text-slate-600 items-center">
                 <span className="text-slate-400 hover:text-slate-600 transition-colors">Home</span>
                 <span className="mx-2 text-slate-300">/</span>
-                <span className="text-slate-900 font-medium">{breadcrumbs}</span>
+                {/* Note: Breadcrumbs are harder to translate dynamically as they come from 'currentView' string. 
+                    Ideally, we map currentView to tSidebar(currentView) here. */}
+                <span className="text-slate-900 font-medium">
+                    {tSidebar(currentView as any) || breadcrumbs}
+                </span>
               </nav>
             </div>
 
@@ -131,10 +143,11 @@ export function Layout({ children, onLogout }: LayoutProps) {
                 >
                   <div className="hidden sm:block">
                     <div className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
-                        {userName || 'User'}
+                      {userName || 'User'}
                     </div>
                     <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
-                        {role?.replace('_', ' ')}
+                      {/* 👇 CHANGE 4: Translate Role */}
+                      {role ? tRoles(role as any) : ''}
                     </div>
                   </div>
                   <div className="w-9 h-9 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center border border-emerald-200 transition-colors">

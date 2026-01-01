@@ -1,26 +1,19 @@
-"use client";
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from "html5-qrcode";
 import { 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  ExternalLink, 
-  Upload, 
-  Scan, 
-  X, 
-  Camera, 
-  QrCode,
-  ShieldCheck,
-  ChevronRight
+  CheckCircle2, AlertCircle, Loader2, ExternalLink, 
+  Upload, Scan, X, Camera, QrCode, ShieldCheck
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { useTranslations } from 'next-intl';
 
 export default function InjiVerify() {
+  const t = useTranslations('InjiVerify');
   const [scanResult, setScanResult] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,10 +54,10 @@ export default function InjiVerify() {
                 verifyUrl: data.verification_urls?.inji_verify 
             });
         } else {
-            setError(data.message || "This certificate could not be verified in our records.");
+            setError(data.message || t('error_not_found'));
         }
     } catch (err: any) {
-        setError("Network error. Please ensure the QR contains a valid verification link.");
+        setError(t('error_network'));
     } finally {
         setLoading(false);
     }
@@ -89,7 +82,7 @@ export default function InjiVerify() {
             );
         } catch (err: any) {
             setIsScanning(false);
-            setError("Camera access denied. Please check your browser permissions.");
+            setError(t('error_camera'));
         }
     }, 100);
   };
@@ -100,9 +93,7 @@ export default function InjiVerify() {
             await scannerRef.current.stop();
             await scannerRef.current.clear();
             scannerRef.current = null;
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) { console.error(err); }
     }
     setIsScanning(false);
   };
@@ -120,7 +111,7 @@ export default function InjiVerify() {
       const decodedText = await html5QrCode.scanFile(file, true);
       await handleScanSuccess(decodedText);
     } catch (err) {
-      setError("No valid QR code found in this image.");
+      setError(t('error_no_qr'));
       setLoading(false);
     }
   };
@@ -133,9 +124,9 @@ export default function InjiVerify() {
           <div className="inline-flex p-3 bg-white/10 rounded-2xl backdrop-blur-md mb-2">
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Trust Verify</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">{t('title')}</h1>
           <p className="text-emerald-50 text-sm md:text-base opacity-90 max-w-xs mx-auto">
-            Securely verify Digital Product Passports and Batch Authenticity
+            {t('subtitle')}
           </p>
         </div>
       </div>
@@ -154,8 +145,8 @@ export default function InjiVerify() {
             <div className="mb-4 p-4 bg-emerald-50 rounded-2xl group-hover:bg-emerald-100 transition-colors">
               <Upload className="w-8 h-8 text-emerald-600" />
             </div>
-            <span className="font-bold text-emerald-950">Upload Image</span>
-            <span className="text-xs text-emerald-600/60 mt-1">From gallery</span>
+            <span className="font-bold text-emerald-950">{t('btn_upload')}</span>
+            <span className="text-xs text-emerald-600/60 mt-1">{t('hint_upload')}</span>
             <input id="qr-input" type="file" accept="image/*" className="hidden" onChange={handleFileUpload}/>
           </button>
 
@@ -173,9 +164,9 @@ export default function InjiVerify() {
             }`}>
               {isScanning ? <Scan className="w-8 h-8 text-white" /> : <Camera className="w-8 h-8 text-emerald-600" />}
             </div>
-            <span className="font-bold">{isScanning ? 'Cancel Scan' : 'Scan Camera'}</span>
+            <span className="font-bold">{isScanning ? t('btn_cancel') : t('btn_scan')}</span>
             <span className={`text-xs mt-1 ${isScanning ? 'text-emerald-200' : 'text-emerald-600/60'}`}>
-              {isScanning ? 'Live Viewfinder' : 'Real-time verify'}
+              {isScanning ? t('hint_live') : t('hint_scan')}
             </span>
           </button>
         </div>
@@ -195,7 +186,7 @@ export default function InjiVerify() {
               </div>
             </div>
             <div className="p-4 bg-white text-center">
-               <p className="text-sm font-medium text-emerald-800">Align QR code within the frame</p>
+               <p className="text-sm font-medium text-emerald-800">{t('align_qr')}</p>
             </div>
           </Card>
         )}
@@ -207,7 +198,7 @@ export default function InjiVerify() {
                <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
                <QrCode className="w-6 h-6 text-emerald-700 absolute inset-0 m-auto" />
             </div>
-            <p className="mt-4 text-emerald-900 font-semibold">Validating Certificate...</p>
+            <p className="mt-4 text-emerald-900 font-semibold">{t('validating')}</p>
           </div>
         )}
 
@@ -215,7 +206,7 @@ export default function InjiVerify() {
         {error && (
           <Alert variant="destructive" className="rounded-2xl border-red-100 bg-red-50 text-red-900 animate-in slide-in-from-top-4">
             <AlertCircle className="h-5 w-5 text-red-600" />
-            <AlertTitle className="font-bold">Verification Error</AlertTitle>
+            <AlertTitle className="font-bold">{t('error_title')}</AlertTitle>
             <AlertDescription className="text-red-700">{error}</AlertDescription>
           </Alert>
         )}
@@ -237,15 +228,15 @@ export default function InjiVerify() {
                 </div>
               </div>
               <h2 className="text-2xl font-bold text-white mt-4">{scanResult.product}</h2>
-              <p className="text-emerald-100 text-sm">Batch ID: {scanResult.batchNumber}</p>
+              <p className="text-emerald-100 text-sm">{t('label_batch')}: {scanResult.batchNumber}</p>
             </div>
             
             <CardContent className="p-6 bg-white space-y-6">
               <div className="grid grid-cols-2 gap-y-6">
-                <DataField label="Exporter" value={scanResult.exporter} />
-                <DataField label="Issuer" value={scanResult.issuer} />
-                <DataField label="Quality Grade" value={scanResult.quality?.grade} />
-                <DataField label="Organic Status" value={scanResult.quality?.organic ? 'Certified Organic' : 'Conventional'} />
+                <DataField label={t('label_exporter')} value={scanResult.exporter} />
+                <DataField label={t('label_issuer')} value={scanResult.issuer} />
+                <DataField label={t('label_grade')} value={scanResult.quality?.grade} />
+                <DataField label={t('label_organic')} value={scanResult.quality?.organic ? t('organic_yes') : t('organic_no')} />
               </div>
 
               {scanResult.verifyUrl && (
@@ -253,7 +244,7 @@ export default function InjiVerify() {
                   className="w-full bg-emerald-950 hover:bg-black text-white rounded-2xl h-14 font-bold text-base shadow-lg transition-all"
                   onClick={() => window.open(scanResult.verifyUrl, '_blank')}
                 >
-                  View Cryptographic Proof
+                  {t('btn_proof')}
                   <ExternalLink className="ml-2 w-5 h-5" />
                 </Button>
               )}
