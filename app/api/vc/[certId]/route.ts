@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { certId: string } }
 ) {
   const { certId } = params;
-
+  console.log(certId);
   const certificate = await prisma.certificate.findUnique({
     where: { id: certId },
     include: { vc: true }
