@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+
+/* 1. Hide the Google branding/logo */
+.goog-logo-link {
+    display: none !important;
+}
+
+.goog-te-gadget {
+    color: transparent !important;
+}
+
+/* 2. Style the dropdown itself to match your UI */
+.goog-te-combo {
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: black;
+    font-family: inherit;
+}
+
+/* 3. Remove the "frame" that appears at the top of the page */
+.goog-te-banner-frame.skiptranslate {
+    display: none !important;
+}
+
+body {
+    top: 0px !important;
+}
 :root {
   --background: #ffffff;
   --foreground: #171717;
