@@ -123,7 +123,7 @@ export function Layout({ children, onLogout }: LayoutProps) {
 
             <div className="flex items-center gap-4">
               <VoiceNav />
-                <GoogleTranslate />
+              <GoogleTranslate />
               {/* [UPDATED] CLICKABLE USER PROFILE */}
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
                 <button 
