@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 
-type AppView = 'dashboard' | 'batch-submission' | 'inspection-requests' | 'digital-passports' | 'inji-verify' | 'audit-logs' | 'list' | 'form' | 'success' | 'detail';
+type AppView = 'dashboard' | 'batch-submission' | 'inspection-requests' | 'digital-passports' | 'inji-verify' | 'audit-logs' | 'list' | 'form' | 'success' | 'detail' | 'profile';
 
 interface VoiceContextType {
   currentView: AppView;

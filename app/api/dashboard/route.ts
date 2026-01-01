@@ -8,7 +8,7 @@ export async function GET() {
     // 1. Fetch Key Metrics in Parallel
     const [totalBatches, pendingBatches, certificates, auditLogs, allBatches] = await Promise.all([
       prisma.batch.count(),
-      prisma.batch.count({ where: { status: { in: ['PENDING', 'IN_PROGRESS'] } } }),
+      prisma.batch.count({ where: { status: { in: ['SUBMITTED', 'PENDING_APPROVAL'] } } }),
       prisma.certificate.count(),
       prisma.auditLog.findMany({ 
         take: 5, 

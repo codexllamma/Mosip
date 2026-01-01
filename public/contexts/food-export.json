@@ -1,0 +1,24 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@protected": true,
+    "type": "@type",
+    "schema": "https://schema.org/",
+    "FoodExportCertificate": {
+      "@id": "https://mosip.io/credentials/food-export/v1#FoodExportCertificate",
+      "@context": {
+        "batchNumber": "schema:identifier",
+        "product": "schema:name",
+        "grade": "schema:qualifications",
+        "origin": "schema:countryOfOrigin",
+        "quantity": "schema:QuantitativeValue",
+        "expiryDate": "schema:expires",
+        "exporterName": "schema:provider",
+        "inspectorName": "schema:inspector",
+        "moisture": "schema:value",
+        "pesticide": "schema:value",
+        "organic": "schema:Boolean"
+      }
+    }
+  }
+}

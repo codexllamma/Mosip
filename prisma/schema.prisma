@@ -37,7 +37,7 @@ model QAProfile {
   currentLoad    Int     @default(0)
   active         Boolean @default(true)
   pinCode        Int
-  latitude       Float?  
+  latitude       Float?
   longitude      Float?
   testsAvailable Json
   user           User    @relation(fields: [userId], references: [id])
@@ -73,7 +73,7 @@ model Batch {
   pinCode             Int          @default(400092)
   harvestDate         DateTime
   destinationCountry  String
-  status              BatchStatus  @default(PENDING)
+  status              BatchStatus  @default(SUBMITTED)
   traceabilityCode    String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
@@ -146,9 +146,33 @@ enum UserRole {
 }
 
 enum BatchStatus {
-  PENDING
-  IN_PROGRESS
+  SUBMITTED
+  PENDING_APPROVAL
   APPROVED
   REJECTED
   CERTIFIED
+}
+
+model CertifyData {
+  id              String   @id @default(uuid())
+  certificateId   String   @unique 
+  
+  
+  batchNumber     String
+  product         String
+  grade           String
+  origin          String
+  quantity        String
+  expiryDate      String
+  exporterName    String
+  inspectorName   String
+  moisture        String
+  pesticide       String
+  organic         Boolean
+  
+  // Identity Linking: This matches the 'sub' field (DID) in the user's OIDC Token
+  exporterDid     String?  
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

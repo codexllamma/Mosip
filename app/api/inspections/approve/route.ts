@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db"; // Make sure this path is correct
+import { prisma } from "@/lib/db";
 import { injiCertify } from "@/lib/inji-certify";
 import QRCode from "qrcode";
 import crypto from "crypto";
@@ -8,27 +8,23 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { batchId, moisture, pesticide, organic, grade, notes } = body;
-    const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-    // ---------------------------------------------------------
-    // 1. PREPARATION (READ ONLY)
-    // ---------------------------------------------------------
-    
-    // Check Inspector
+    // 1. Fetch Context (Inspector & Batch)
     let inspector = await prisma.user.findFirst({ where: { role: "QA_AGENCY" } });
+    
+    // Safety check: Create Default Inspector if none exists
     if (!inspector) {
       inspector = await prisma.user.create({
         data: {
           email: "inspector@apeda.gov.in",
-          name: "QA Inspector",
+          name: "APEDA Inspector",
           role: "QA_AGENCY",
-          organization: "APEDA Quality Assurance",
-          did: process.env.QA_AGENCY_DID || "did:web:apeda.gov.in:qa"
+          organization: "APEDA",
+          did: process.env.QA_AGENCY_DID || "did:web:apeda.gov.in"
         }
       });
     }
 
-    // Get Batch
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
       include: { exporter: true }
@@ -36,96 +32,118 @@ export async function POST(req: NextRequest) {
 
     if (!batch) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
 
-    // ---------------------------------------------------------
-    // 2. EXTERNAL CALLS (OUTSIDE TRANSACTION)
-    // ---------------------------------------------------------
+    const certificateId = crypto.randomUUID();
     
-    const certificateId = crypto.randomUUID(); // Pre-generate ID
-    let vcResponse;
-    let vcPayload;
+    // ---------------------------------------------------------
+    // 2. PREPARE DATA FOR "PULL" FLOW (The Postgres Plugin)
+    // ---------------------------------------------------------
+    // This MUST be flat to match your CertifyData Prisma model
+    const certifyDataPayload = {
+        certificateId: certificateId,
+        batchNumber: batch.batchNumber,
+        product: batch.cropType,          // Mapped to 'product' in DB
+        grade: grade,                     // Top-level in DB
+        origin: batch.location,
+        quantity: `${batch.quantity} ${batch.unit}`, // String in DB
+        expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+        exporterName: batch.exporter.organization || batch.exporter.name,
+        inspectorName: inspector.organization || inspector.name,
+        moisture: moisture.toString(),
+        pesticide: pesticide.toString(),
+        organic: Boolean(organic),
+        exporterDid: batch.exporter.did || `did:web:exporter:${batch.exporterId}`
+    };
 
+    // ---------------------------------------------------------
+    // 3. ATTEMPT "PUSH" FLOW (Inji API Call)
+    // ---------------------------------------------------------
+    // This MUST be nested to match the InjiCertifyClient interface
+    
+    let vcResponse, vcPayload, finalVerifyUrl, qrCode;
+    
     try {
-      console.log("Calling Inji Certify...");
-      vcResponse = await injiCertify.issueCredential({
-        credentialSubject: {
-          id: batch.exporter.did || undefined,
-          batchNumber: batch.batchNumber,
-          productType: batch.cropType,
-          exporterName: batch.exporter.name,
-          exporterOrganization: batch.exporter.organization || undefined,
-          origin: batch.location,
-          destination: batch.destinationCountry,
-          quantity: batch.quantity,
-          unit: batch.unit,
-          qualityMetrics: {
-            moisture: moisture.toString(),
-            pesticideResidue: pesticide.toString(),
-            organic: Boolean(organic),
-            grade: grade
-          },
-          inspectionDate: new Date().toISOString(),
-          inspector: {
-            name: inspector.name,
-            organization: inspector.organization || "QA Agency"
-          }
-        },
-        issuer: {
-          id: inspector.did || process.env.QA_AGENCY_DID || "did:web:apeda.gov.in:qa",
-          name: inspector.organization || "APEDA Quality Assurance"
-        },
-        type: ["VerifiableCredential", "FoodExportQualityCertificate"],
-        expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString()
-      });
-      vcPayload = vcResponse.credential;
-    } catch (vcError) {
-      console.warn("Inji failed, using mock:", vcError);
-      // Fallback Mock VC
-      vcPayload = {
-        "@context": ["https://www.w3.org/2018/credentials/v1"],
-        id: `urn:uuid:${batchId}`,
-        type: ["VerifiableCredential", "MockCertificate"],
-        issuer: { id: inspector.did, name: "QA Agency" },
-        issuanceDate: new Date().toISOString(),
-        credentialSubject: { batchId: batch.batchNumber }
-      };
-      vcResponse = null;
+        console.log(`Issuing VC for Batch ${batch.batchNumber}...`);
+        
+        vcResponse = await injiCertify.issueCredential({
+            credentialSubject: {
+                id: batch.exporter.did || undefined,
+                // Explicit Mapping (Do NOT spread certifyDataPayload here)
+                batchNumber: batch.batchNumber,
+                productType: batch.cropType,       // Inji expects 'productType'
+                exporterName: batch.exporter.name,
+                exporterOrganization: batch.exporter.organization || undefined,
+                origin: batch.location,
+                destination: batch.destinationCountry,
+                quantity: batch.quantity,          // Inji expects number
+                unit: batch.unit,
+                qualityMetrics: {                  // Inji expects nested object
+                    moisture: moisture.toString(),
+                    pesticideResidue: pesticide.toString(),
+                    organic: Boolean(organic),
+                    grade: grade
+                },
+                inspectionDate: new Date().toISOString(),
+                inspector: {
+                    name: inspector.name,
+                    organization: inspector.organization || "APEDA Quality Assurance"
+                }
+            },
+            issuer: {
+                id: inspector.did || "did:web:apeda.gov.in",
+                name: inspector.organization || "APEDA"
+            },
+            type: ["VerifiableCredential", "FoodExportCertificate"],
+            expirationDate: certifyDataPayload.expiryDate
+        });
+
+        vcPayload = vcResponse.credential;
+        finalVerifyUrl = injiCertify.generateVerifyUrl(vcResponse.credentialId);
+        qrCode = await QRCode.toDataURL(finalVerifyUrl);
+
+    } catch (e: any) {
+        console.warn("⚠️ Push issuance failed. Falling back to DB-only 'Pull' flow.", e.message);
+        
+        finalVerifyUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/verify/${certificateId}`;
+        qrCode = await QRCode.toDataURL(finalVerifyUrl);
+        
+        // Placeholder for the DB if API fails
+        vcPayload = { 
+            note: "Generated via OIDC Pull Flow (API Unavailable)",
+            credentialSubject: certifyDataPayload
+        }; 
     }
 
-    // Generate QR
-    const finalVerifyUrl = vcResponse 
-      ? injiCertify.generateVerifyUrl(vcResponse.credentialId)
-      : `${BASE_URL}/api/verify/${certificateId}`;
-      
-    const qrCode = await QRCode.toDataURL(finalVerifyUrl);
-
     // ---------------------------------------------------------
-    // 3. DB TRANSACTION (OPTIMIZED)
+    // 4. DB TRANSACTION
     // ---------------------------------------------------------
-    
     const result = await prisma.$transaction(async (tx) => {
       
-      // Step A: Update Batch & Create Inspection (Parallel)
-      await Promise.all([
-        tx.batch.update({
-          where: { id: batchId },
-          data: { status: "APPROVED" }
-        }),
-        tx.inspection.create({
-          data: {
-            moisture: moisture.toString(),
-            pesticideResidue: pesticide.toString(),
-            organic: Boolean(organic),
-            grade,
-            notes,
-            batch: { connect: { id: batchId } },
-            inspector: { connect: { id: inspector.id } }
-          }
-        })
-      ]);
+      // A. Update Status
+      await tx.batch.update({ 
+          where: { id: batchId }, 
+          data: { status: "CERTIFIED" } 
+      });
+      
+      // B. Create Inspection
+      await tx.inspection.create({
+        data: {
+          moisture: moisture.toString(),
+          pesticideResidue: pesticide.toString(),
+          organic: Boolean(organic),
+          grade,
+          notes,
+          batchId,
+          inspectorId: inspector.id
+        }
+      });
 
-      // Step B: Create Certificate AND VC together (Nested Write)
-      // This merges 2 DB calls into 1, making it much faster/safer
-      const certificate = await tx.certificate.create({
+      // C. Save to CertifyData (Source of Truth for Postgres Plugin)
+      await tx.certifyData.create({
+        data: certifyDataPayload
+      });
+
+      // D. Save Certificate (For Dashboard)
+      const cert = await tx.certificate.create({
         data: {
           id: certificateId,
           batchNumber: batch.batchNumber,
@@ -133,50 +151,33 @@ export async function POST(req: NextRequest) {
           exporterName: batch.exporter.organization || batch.exporter.name,
           qaAgencyName: inspector.organization || inspector.name,
           issuedAt: new Date(),
-          expiresAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-          batch: { connect: { id: batchId } },
+          expiresAt: new Date(certifyDataPayload.expiryDate),
+          batchId,
           
-          // NESTED CREATE: Saves the VC at the exact same time
           vc: {
             create: {
               vcJson: vcPayload as any,
-              issuerDid: inspector.did || "did:web:apeda.gov.in:qa",
+              issuerDid: inspector.did || "",
               subjectDid: batch.exporter.did || "",
-              signature: vcResponse?.credential?.proof?.jws || "mock-signature",
+              signature: vcPayload.proof?.jws || "pending-oidc-issuance",
               verifyUrl: finalVerifyUrl
             }
           }
         }
       });
 
-      // Step C: Audit Log
-      await tx.auditLog.create({
-        data: {
-          action: "Issued",
-          entityType: "Credentials",
-          entityId: certificateId,
-          actorId: inspector.id,
-          details: { batchNumber: batch.batchNumber }
-        }
-      });
-
-      return { 
-        success: true, 
-        certificateId: certificate.id, 
-        verifyUrl: finalVerifyUrl, 
-        qrCode 
-      };
-
-    }, {
-      // ⚠️ IMPORTANT: Increase timeout to 20 seconds
-      maxWait: 5000, 
-      timeout: 20000 
+      return cert;
     });
 
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json({ 
+      success: true, 
+      certificateId: result.id,
+      verifyUrl: finalVerifyUrl, 
+      qrCode 
+    }, { status: 201 });
 
   } catch (err: any) {
-    console.error("API Error:", err);
+    console.error("Certification Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
-export type UserRole = 'exporter' | 'qa_agency' | 'importer';
+export type UserRole = 'exporter' | 'qa_agency' | 'importer' | 'admin';
 
-export type BatchStatus = 'pending' | 'in_progress' | 'approved' | 'rejected';
+export type BatchStatus = 'submitted' | 'pending_approval' | 'approved' | 'rejected' | 'certified';
 
 export type InspectionStatus = 'pending' | 'completed' | 'failed';
 

@@ -53,6 +53,13 @@ export class InjiCertifyClient {
   async issueCredential(
     request: IssueCredentialRequest
   ): Promise<IssueCredentialResponse> {
+    
+    // [OPTIMIZATION] Fail fast if using dummy environment variables
+    if (this.config.baseUrl.includes("example.com")) {
+      console.warn("Skipping Inji API call (Mock Mode detected: example.com)");
+      throw new Error("Mock Mode: Skipping network call");
+    }
+    
     try {
       const headers: HeadersInit = {
         "Content-Type": "application/json",
@@ -62,8 +69,11 @@ export class InjiCertifyClient {
         headers["Authorization"] = `Bearer ${this.config.apiKey}`;
       }
 
+      // Base URL check
+      const baseUrl = this.config.baseUrl.replace(/\/$/, ""); 
+
       const response = await fetch(
-        `${this.config.baseUrl}/v1/credentials/issue`,
+        `${baseUrl}/v1/credentials/issue`,
         {
           method: "POST",
           headers,
@@ -72,6 +82,8 @@ export class InjiCertifyClient {
               "@context": [
                 "https://www.w3.org/2018/credentials/v1",
                 "https://www.w3.org/2018/credentials/examples/v1",
+                // [IMPORTANT] Add your Custom Context URL here so fields are recognized
+                `${process.env.NEXT_PUBLIC_BASE_URL || "https://your-domain.com"}/contexts/food-export.json`
               ],
               type: request.type,
               issuer: request.issuer,
@@ -89,9 +101,9 @@ export class InjiCertifyClient {
       );
 
       if (!response.ok) {
-        const error = await response.text();
+        const errorText = await response.text();
         throw new Error(
-          `Inji Certify API error: ${response.status} - ${error}`
+          `Inji Certify API error: ${response.status} - ${errorText}`
         );
       }
 
@@ -102,12 +114,12 @@ export class InjiCertifyClient {
         credential: result.credential || result.verifiableCredential,
         credentialUrl:
           result.credentialUrl ||
-          `${this.config.baseUrl}/v1/credentials/${result.credentialId}`,
+          `${baseUrl}/v1/credentials/${result.credentialId}`,
         qrCode: result.qrCode,
       };
     } catch (error: any) {
       console.error("Inji Certify issuance failed:", error);
-      throw new Error(`Failed to issue credential: ${error.message}`);
+      throw error; // Re-throw so the route knows to fallback to DB-only mode
     }
   }
 
@@ -117,11 +129,12 @@ export class InjiCertifyClient {
   }
 
   generateVerifyUrl(credentialId: string): string {
-    return `${this.config.baseUrl}/verify/${credentialId}`;
-  }
+  return `${this.config.baseUrl}/vc/${credentialId}`;  
+}
+
 }
 
 export const injiCertify = new InjiCertifyClient({
-  baseUrl: process.env.INJI_CERTIFY_URL || "https://certify.example.com",
+  baseUrl: process.env.INJI_CERTIFY_URL || "https://certify.mosip.net",
   apiKey: process.env.INJI_CERTIFY_API_KEY,
 });

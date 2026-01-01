@@ -12,6 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +28,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('EXPORTER'); // Default role
   
   // UI States
   const [loading, setLoading] = useState(false);
@@ -43,7 +51,7 @@ export default function LoginPage() {
           return;
         }
 
-        // Bridge Session -> LocalStorage
+        // Bridge Session -> LocalStorage (Optional, if you still use localStorage elsewhere)
         await finalizeLogin();
 
       } else {
@@ -51,18 +59,26 @@ export default function LoginPage() {
         const res = await fetch('/api/auth/signup', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ name: fullName, email, password }),
+             body: JSON.stringify({ 
+               name: fullName, 
+               email, 
+               password,
+               role: role // Send selected role to API
+             }),
         });
         
-        if (!res.ok) throw new Error('Registration failed');
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.message || 'Registration failed');
+        }
         
         setIsLogin(true);
         setError(null);
-        alert("Account created! Please sign in."); 
+        alert("Account created successfully! Please sign in."); 
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Auth Error:", err);
-      setError("Something went wrong. Please try again.");
+      setError(err.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -127,21 +143,21 @@ export default function LoginPage() {
 
   // Helper to handle the post-login redirect (used by both standard and demo auth)
   const finalizeLogin = async (customRedirect?: string) => {
-    const sessionRes = await fetch('/api/auth/session');
-    const session = await sessionRes.json();
-    const realRole = session?.user?.role || 'EXPORTER'; 
+    // In a real app with NextAuth, the session is handled automatically.
+    // We fetch it here just to be safe or set legacy localStorage flags.
+    try {
+        const sessionRes = await fetch('/api/auth/session');
+        if (sessionRes.ok) {
+            const session = await sessionRes.json();
+            const realRole = session?.user?.role || 'EXPORTER'; 
+            localStorage.setItem('mock_role', realRole); // Legacy support
+        }
+    } catch (e) {
+        console.warn("Session fetch warning", e);
+    }
     
-    localStorage.setItem('mock_role', realRole);
-    
-    // Use the custom path if provided (e.g. for specific demos), otherwise default logic
-    const pathToRedirect = customRedirect || (
-      realRole === 'QA_AGENCY' ? '/' :
-      realRole === 'IMPORTER' ? '/' :
-      realRole === 'ADMIN' ? '/' : 
-      '/'
-    );
-      
-    router.push(pathToRedirect);
+    // Redirect based on intent or default
+    router.push(customRedirect || '/');
     router.refresh();
   };
 
@@ -222,7 +238,7 @@ export default function LoginPage() {
         <Card className="border-0 shadow-2xl bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden">
           <CardHeader className="space-y-1 pb-2 border-b border-slate-100 bg-slate-50/50 p-8">
             <CardTitle className="text-2xl font-bold text-slate-900">
-              {isLogin ? 'Welcome Back' : 'Get Started'}
+              {isLogin ? 'Welcome Back' : 'Create Account'}
             </CardTitle>
             <CardDescription className="text-base text-slate-500">
               {isLogin 
@@ -243,18 +259,46 @@ export default function LoginPage() {
             <form onSubmit={handleAuth} className="space-y-5">
               
               {!isLogin && (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                  <Label htmlFor="name" className="text-slate-700 font-medium">Full Name</Label>
-                  <div className="relative group">
-                    <UserPlus className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
-                    <Input
-                      id="name"
-                      placeholder="Jane Doe"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                      required={!isLogin}
-                    />
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-slate-700 font-medium">Full Name</Label>
+                    <div className="relative group">
+                        <UserPlus className="absolute left-3 top-3 h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
+                        <Input
+                        id="name"
+                        placeholder="Enter your name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="text-slate-700 pl-10 h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        required={!isLogin}
+                        />
+                    </div>
+                  </div>
+
+                  {/* ROLE SELECTION DROPDOWN */}
+                  <div className="space-y-2">
+                    <Label htmlFor="role" className="text-slate-700 font-medium">Account Type</Label>
+                    <Select onValueChange={setRole} defaultValue={role}>
+                      <SelectTrigger className="h-11 bg-slate-50 border-slate-200 focus:ring-emerald-500 focus:border-emerald-500 text-slate-900">
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      
+                      {/* Added bg-white, z-50, and shadow-xl to fix transparency */}
+                      <SelectContent className="bg-white border-slate-200 text-slate-700 shadow-xl z-50 max-h-[200px]">
+                        <SelectItem value="EXPORTER" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
+                          Exporter (Submit Batches)
+                        </SelectItem>
+                        <SelectItem value="QA_AGENCY" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
+                          QA Agency (Inspect & Certify)
+                        </SelectItem>
+                        <SelectItem value="IMPORTER" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
+                          Importer (View Passports)
+                        </SelectItem>
+                        <SelectItem value="ADMIN" className="hover:bg-slate-100 cursor-pointer focus:bg-emerald-50 focus:text-emerald-700">
+                          Administrator
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               )}

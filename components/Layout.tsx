@@ -14,19 +14,17 @@ import {
   ScanLine 
 } from 'lucide-react';
 import { useRole } from "@/contexts/RoleContext";
-import { useVoiceNav } from "@/contexts/VoiceContext"; // 1. Import the context
+import { useVoiceNav } from "@/contexts/VoiceContext"; 
 import VoiceNav from './VoiceNav';
 
-
-// 1. UPDATE THE INTERFACE
 interface LayoutProps {
   children: React.ReactNode;
-  onLogout: () => void;             // <--- Add this
+  onLogout: () => void;
 }
 
 export function Layout({ children, onLogout }: LayoutProps) {
   const { role, userName } = useRole();
-  const { currentView, navigateTo } = useVoiceNav(); // 2. Use context instead of props
+  const { currentView, navigateTo } = useVoiceNav(); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const navItems = [
@@ -42,7 +40,6 @@ export function Layout({ children, onLogout }: LayoutProps) {
     item => !item.roles || item.roles.includes(role || '')
   );
 
-  // 3. Updated breadcrumb logic to handle sub-views like 'form' or 'list'
   const breadcrumbs = currentView
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -68,13 +65,12 @@ export function Layout({ children, onLogout }: LayoutProps) {
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            // Check if active (handle cases where currentView might be 'form' but we are in 'batch-submission' section)
             const isActive = currentView === item.id || (item.id === 'batch-submission' && (currentView === 'form' || currentView === 'list'));
             
             return (
               <button
                 key={item.id}
-                onClick={() => navigateTo(item.id)} // 4. Use navigateTo from context
+                onClick={() => navigateTo(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-emerald-800 text-white shadow-sm'
@@ -125,17 +121,28 @@ export function Layout({ children, onLogout }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* 5. VoiceNav is here and can now update the whole app via Context */}
               <VoiceNav />
+              
+              {/* [UPDATED] CLICKABLE USER PROFILE */}
               <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
-                <div className="text-right hidden sm:block">
-                  <div className="text-sm font-medium text-slate-900">{userName || 'User'}</div>
-                  <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">{role?.replace('_', ' ')}</div>
-                </div>
-                <div className="w-9 h-9 bg-emerald-100 rounded-full flex items-center justify-center border border-emerald-200">
-                  <User className="w-5 h-5 text-emerald-700" />
-                </div>
+                <button 
+                  onClick={() => navigateTo('profile')} 
+                  className="flex items-center gap-3 group hover:bg-slate-50 p-1 rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <div className="hidden sm:block">
+                    <div className="text-sm font-medium text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        {userName || 'User'}
+                    </div>
+                    <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
+                        {role?.replace('_', ' ')}
+                    </div>
+                  </div>
+                  <div className="w-9 h-9 bg-emerald-100 group-hover:bg-emerald-200 rounded-full flex items-center justify-center border border-emerald-200 transition-colors">
+                    <User className="w-5 h-5 text-emerald-700" />
+                  </div>
+                </button>
               </div>
+
             </div>
           </div>
         </header>

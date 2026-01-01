@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Search, FileText, X } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
 import type { Batch } from '../types';
-
+import { useSession } from "next-auth/react";
 interface InspectionFormData {
   moistureLevel: string;
   pesticideContent: string;
@@ -18,7 +18,8 @@ export function InspectionRequests() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showModal, setShowModal] = useState(false);
-  
+  const { data: session } = useSession();
+    
   const [formData, setFormData] = useState<InspectionFormData>({
     moistureLevel: '',
     pesticideContent: '',
@@ -34,6 +35,7 @@ export function InspectionRequests() {
   }, []);
 
   useEffect(() => {
+    
     if (searchTerm) {
       const filtered = batches.filter(batch =>
         batch.batch_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -48,8 +50,9 @@ export function InspectionRequests() {
 
   // --- 1. FETCH BATCHES FROM API ---
   async function loadBatches() {
+    if (!session?.user?.email) return;
     try {
-      const response = await fetch('/api/inspections/pending');
+      const response = await fetch(`/api/inspections/pending?email=${session.user.email}`);
       if (!response.ok) throw new Error('Failed to fetch batches');
       
       const data = await response.json();

@@ -26,7 +26,7 @@ interface MatchResult {
 // Simple in-memory cache for the runtime of the specific request/server instance
 const geoCache: Record<string, { lat: number; lng: number } | null> = {};
 
-async function pinToLatLon(pincode: string | number): Promise<[number, number] | [null, null]> {
+export async function pinToLatLon(pincode: string | number): Promise<[number, number] | [null, null]> {
   const pinStr = String(pincode).trim();
   
   if (geoCache[pinStr] !== undefined) {

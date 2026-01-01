@@ -1,68 +1,47 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { useSession } from "next-auth/react";
 
 interface RoleContextType {
-  role: string;
-  setRole: (role: string) => void;
-  userName: string;
-  userEmail: string;
-  isLoading: boolean; // Added helper to know when auth is ready
+  role: string | null;
+  setRole: (role: string) => void; // Kept for backward compatibility, but mostly unused now
+  userName: string | null;
+  userEmail: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  // FIX: Initialize state by reading localStorage immediately (if in browser)
-  const [role, setRoleState] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('mock_role') || '';
-    }
-    return '';
-  });
+  // 1. Fetch real session data from NextAuth
+  const { data: session, status } = useSession();
 
-  const [isLoading, setIsLoading] = useState(true);
+  // 2. Extract real values
+  // These come from your DB via the logic in app/api/auth/[...nextauth]/route.ts
+  const role = session?.user?.role || null;
+  const userName = session?.user?.name || null;
+  const userEmail = session?.user?.email || null;
+  
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated";
 
-  // 1. Sync with LocalStorage on Mount (to handle hydration matching)
-  useEffect(() => {
-    const storedRole = localStorage.getItem('mock_role');
-    if (storedRole) {
-      setRoleState(storedRole);
-    }
-    setIsLoading(false);
-  }, []);
-
-  // 2. Wrapper to update both State and Storage
+  // 3. Optional: Allow manual override (only if strictly necessary for dev testing)
+  // For production, this function is a no-op because the session drives the state.
   const setRole = (newRole: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('mock_role', newRole);
-    }
-    setRoleState(newRole);
+    console.warn("setRole called: Roles are now managed by the active Session.");
   };
-
-  // 3. Map Roles to Seeded DB Users
-  const getUserDetails = (currentRole: string) => {
-    // Helper: Normalize case to ensure matching works
-    const r = currentRole?.toUpperCase() || '';
-    
-    switch (r) {
-      case 'EXPORTER': 
-        return { name: 'BharatExports', email: 'contact@bharatexports.com' };
-      case 'QA_AGENCY': 
-        return { name: 'FoodSafety India', email: 'inspector@foodsafety.gov.in' };
-      case 'IMPORTER': 
-        return { name: 'Global Foods Import Corp', email: 'importer@globalfoods.com' };
-      case 'ADMIN':
-        return { name: 'System Admin', email: 'admin@agriexport.gov.in' };
-      default:
-        return { name: '', email: '' };
-    }
-  };
-
-  const { name: userName, email: userEmail } = getUserDetails(role);
 
   return (
-    <RoleContext.Provider value={{ role, setRole, userName, userEmail, isLoading }}>
+    <RoleContext.Provider value={{ 
+      role, 
+      setRole, 
+      userName, 
+      userEmail, 
+      isLoading, 
+      isAuthenticated 
+    }}>
       {children}
     </RoleContext.Provider>
   );

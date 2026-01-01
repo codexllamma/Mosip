@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from 'react';
 import { 
     Upload, X, FileText, Image as ImageIcon, 
     Plus, Calendar, MapPin, ArrowRight, 
-    ArrowLeft, CheckCircle2, Package, Clock, ShieldCheck, Globe, Loader2
+    ArrowLeft, CheckCircle2, Package, Clock, ShieldCheck, Globe, Loader2,
+    FlaskConical
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
-import { useVoiceNav } from '@/contexts/VoiceContext'; // 1. Ensure context is imported
+import { useVoiceNav } from '@/contexts/VoiceContext'; 
 import { findBestMatchAction } from '@/app/actions/match-actions';
 
 // --- Types ---
@@ -19,6 +20,7 @@ interface FormData {
     pincode: string;
     harvestDate: string;
     destinationCountry: string;
+    tests: string[]; // [UPDATED] Added tests array
 }
 
 interface DetailItemProps {
@@ -33,53 +35,40 @@ interface Batch {
     quantity: string;
     unit: string;
     date: string; 
-    status: 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' | 'CERTIFIED'; 
+    status: 'SUBMITTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'CERTIFIED'; 
     destination: string; 
     location: string;
     pincode: string;
-    labReports: string[]; 
+    labReports: string[]; // This will store test names
     farmPhotos: string[];
 }
-
 
 // --- Component ---
 export function BatchSubmission() {
     const { userEmail } = useRole();
-    const { currentView, navigateTo, formData, setFormField} = useVoiceNav(); // 2. Consume Voice Context 
+    const { currentView, navigateTo, formData, setFormField } = useVoiceNav(); 
 
     // DATA STATE
     const [batches, setBatches] = useState<Batch[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
     const [apiError, setApiError] = useState<string | null>(null);
 
-    // VIEW STATE: 'list' | 'form' | 'success' | 'detail'
+    // VIEW STATE
     const [view, setView] = useState<'list' | 'form' | 'success' | 'detail'>('list');
     const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
 
-    const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+    // MATCHING STATE
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Hardcoded inputs for demo - you can replace these with form inputs
-  const pincode = "400092"; 
-  const tests = ["mositure"];
+    // CONSTANTS
+    const cropTypes = ['Basmati Rice', 'Jasmine Rice', 'Wheat', 'Alphonso Mangoes', 'Turmeric', 'Black Pepper', 'Cardamom', 'Tea', 'Coffee'];
+    const units = ['kg', 'tonnes', 'quintal', 'lbs', 'boxes'];
+    const countries = ['United Arab Emirates', 'United States', 'United Kingdom', 'Saudi Arabia', 'Singapore', 'Germany', 'France', 'Japan'];
     
-  const handleRunMatch = async () => {
-    setLoading(true);
-    setResult(null);
+    // [NEW] Available Tests List
+    const availableTests = ['Moisture', 'Pesticide', 'Organic', 'Heavy Metals', 'Grade A', 'Aflatoxin'];
 
-    // CALL THE SERVER ACTION HERE
-    const response = await findBestMatchAction(pincode, tests);
-
-    if (response.success) {
-      setResult(response.data);
-    } else {
-      alert(response.error);
-    }
-    console.log("Result: ", response)
-    setLoading(false);
-  };
-
-    // 3. EFFECT: Listen for Voice Navigation commands
+    // --- EFFECT: Listen for Voice Navigation commands ---
     useEffect(() => {
         if (currentView === 'form') {
             setView('form');
@@ -88,29 +77,20 @@ export function BatchSubmission() {
         }
     }, [currentView]);
 
-    // 4. HANDLER: Sync manual clicks with Voice Context
     const handleSetView = (newView: 'list' | 'form' | 'success' | 'detail') => {
         setView(newView);
-        // If switching to list or form manually, update context so voice triggers stay accurate
         if (newView === 'form' || newView === 'list') {
             navigateTo(newView);
         }
     };
 
-    // REFS for file inputs
+    // REFS
     const labInputRef = useRef<HTMLInputElement>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
 
-    // FORM STATE
-    
+    // FILE STATE
     const [labReports, setLabReports] = useState<File[]>([]);
     const [farmPhotos, setFarmPhotos] = useState<File[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // CONSTANTS
-    const cropTypes = ['Basmati Rice', 'Jasmine Rice', 'Wheat', 'Alphonso Mangoes', 'Turmeric', 'Black Pepper', 'Cardamom', 'Tea', 'Coffee'];
-    const units = ['kg', 'tonnes', 'quintal', 'lbs', 'boxes'];
-    const countries = ['United Arab Emirates', 'United States', 'United Kingdom', 'Saudi Arabia', 'Singapore', 'Germany', 'France', 'Japan'];
 
     // --- EFFECT: Fetch Batches on Load ---
     useEffect(() => {
@@ -147,8 +127,18 @@ export function BatchSubmission() {
     }, []);
 
     // --- Handlers ---
-    const handleInputChange = (field: keyof FormData, value: string) => {
+    const handleInputChange = (field: keyof FormData, value: any) => {
         setFormField(field, value);
+    };
+
+    // [NEW] Toggle Tests Checkbox
+    const toggleTest = (test: string) => {
+        const currentTests = formData.tests || []; // Ensure array exists
+        const newTests = currentTests.includes(test)
+            ? currentTests.filter((t : string)  => t !== test)
+            : [...currentTests, test];
+        
+        setFormField('tests', newTests);
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'lab' | 'photo') => {
@@ -174,19 +164,32 @@ export function BatchSubmission() {
         setView('detail');
     };
 
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'APPROVED':
+            case 'CERTIFIED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-800 border-amber-200';
+            case 'REJECTED': return 'bg-rose-100 text-rose-800 border-rose-200';
+            default: return 'bg-slate-100 text-slate-800 border-slate-200';
+        }
+    };
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setIsSubmitting(true);
         setApiError(null);
 
         try {
+            // 1. Prepare Data
             const submissionData = {
                 ...formData,
                 quantity: parseFloat(formData.quantity),
                 pincode: parseInt(formData.pincode, 10),
-                tests: labReports.map(f => f.name.replace(/\.[^/.]+$/, "")),
+                // Ensure tests are sent from formData
+                tests: formData.tests || [] 
             };
 
+            // 2. Submit to API (Create Batch + Auto Match)
             const response = await fetch('/api/batches', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -199,6 +202,8 @@ export function BatchSubmission() {
             }
             
             const newBatchData = await response.json();
+            
+            // 3. Refresh List
             const freshListResponse = await fetch('/api/batches');
             const freshData = await freshListResponse.json();
             
@@ -233,6 +238,7 @@ export function BatchSubmission() {
             setSelectedBatch(newlyCreatedBatch);
             setView('success');
             
+            // Reset Fields
             setFormField('cropType', '');
             setFormField('quantity', '');
             setFormField('unit', 'kg');
@@ -240,29 +246,16 @@ export function BatchSubmission() {
             setFormField('pincode', '');
             setFormField('harvestDate', '');
             setFormField('destinationCountry', '');
+            setFormField('tests', []); // Reset tests
             setLabReports([]);
             setFarmPhotos([]);
+
         } catch (error: any) {
             setApiError(error.message || "Failed to submit batch.");
         } finally {
             setIsSubmitting(false);
         }
     }
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'APPROVED':
-            case 'CERTIFIED':
-                return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'PENDING':
-                return 'bg-amber-100 text-amber-800 border-amber-200';
-            case 'REJECTED':
-                return 'bg-rose-100 text-rose-800 border-rose-200';
-            case 'IN_PROGRESS':
-                return 'bg-blue-100 text-blue-800 border-blue-200';
-            default: return 'bg-slate-100 text-slate-800 border-slate-200';
-        }
-    };
 
     // --- Render Logic ---
 
@@ -275,7 +268,7 @@ export function BatchSubmission() {
                         <p className="text-slate-500 text-sm">Monitor the status of your exports in the supply chain.</p>
                     </div>
                     <button 
-                        onClick={() => handleSetView('form')} // Changed to handleSetView
+                        onClick={() => handleSetView('form')}
                         className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
                         disabled={dataLoading}
                     >
@@ -283,7 +276,8 @@ export function BatchSubmission() {
                         New Batch
                     </button>
                 </div>
-                {/* List Body (Table) */}
+                
+                {/* List Body */}
                 <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                     {dataLoading ? (
                         <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center">
@@ -358,17 +352,22 @@ export function BatchSubmission() {
                             <DetailItem icon={<ShieldCheck className="w-4 h-4" />} label="Pincode/Zip" value={selectedBatch.pincode} />
                             <DetailItem icon={<Globe className="w-4 h-4" />} label="Target Market" value={selectedBatch.destination} />
                         </div>
-                        <div className="space-y-6 md:col-span-1">
-                            <h3 className="text-sm font-bold text-slate-700 mb-2 border-b pb-1">Required Tests</h3>
-                            <ul className="space-y-2 text-sm">
-                                {selectedBatch.labReports.map((testName, i) => (
-                                    <li key={i} className="flex items-center gap-2 text-slate-600">
-                                        <FileText className="w-4 h-4 text-emerald-500" /> 
-                                        {testName} 
-                                        <span className="text-xs text-slate-400"> (Pending QA)</span>
-                                    </li>
-                                ))}
-                            </ul>
+                        <div className="space-y-6 md:col-span-1 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                            <h3 className="text-sm font-bold text-slate-700 mb-2 border-b pb-1 flex items-center gap-2">
+                                <FlaskConical className="w-4 h-4" /> Required Tests
+                            </h3>
+                            {selectedBatch.labReports.length > 0 ? (
+                                <ul className="space-y-2 text-sm">
+                                    {selectedBatch.labReports.map((testName, i) => (
+                                        <li key={i} className="flex items-center gap-2 text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> 
+                                            {testName} 
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-xs text-slate-400 italic">No specific tests requested.</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -385,18 +384,15 @@ export function BatchSubmission() {
                             <CheckCircle2 className="w-10 h-10 text-white" />
                         </div>
                         <h2 className="text-3xl font-bold">Batch Submitted!</h2>
-                        <p className="text-emerald-100 mt-2">Batch **{selectedBatch.id}** is now queued for matching with a QA Agency.</p>
+                        <p className="text-emerald-100 mt-2">Batch <strong>{selectedBatch.id}</strong> is now queued for matching.</p>
                     </div>
                     <div className="p-8 space-y-6">
-                        <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Batch Details Submitted</h3>
                         <div className="grid grid-cols-2 gap-6">
                             <DetailItem icon={<Package className="w-4 h-4" />} label="Crop Type" value={selectedBatch.cropType} />
                             <DetailItem icon={<Clock className="w-4 h-4" />} label="Quantity" value={`${selectedBatch.quantity} ${selectedBatch.unit}`} />
-                            <DetailItem icon={<Calendar className="w-4 h-4" />} label="Harvest Date" value={selectedBatch.date} />
-                            <DetailItem icon={<Globe className="w-4 h-4" />} label="Target Market" value={selectedBatch.destination} />
                         </div>
                         <button 
-                            onClick={() => handleSetView('list')} // Changed to handleSetView
+                            onClick={() => handleSetView('list')}
                             className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -426,13 +422,14 @@ export function BatchSubmission() {
 
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
                     <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                        {/* 1. Product Details */}
                         <div className="space-y-6">
                             <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">Product Details</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
                                     <select required value={formData.cropType} onChange={(e) => setFormField('cropType', e.target.value)} 
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
+                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
                                         <option value="" className="text-slate-700">Select crop type</option>
                                         {cropTypes.map(crop => <option key={crop} value={crop}>{crop}</option>)}
                                     </select>
@@ -440,7 +437,7 @@ export function BatchSubmission() {
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Destination Country <span className="text-rose-500">*</span></label>
                                     <select required value={formData.destinationCountry} onChange={(e) => setFormField('destinationCountry', e.target.value)} 
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
+                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
                                         <option value="" className="text-slate-400">Select destination</option>
                                         {countries.map(country => <option key={country} value={country}>{country}</option>)}
                                     </select>
@@ -448,6 +445,7 @@ export function BatchSubmission() {
                             </div>
                         </div>
 
+                        {/* 2. Logistics */}
                         <div className="space-y-6">
                             <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">Logistics & Quantity</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -466,7 +464,7 @@ export function BatchSubmission() {
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Harvest Date <span className="text-rose-500">*</span></label>
                                     <input type="date" required value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
-                                        className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Quantity <span className="text-rose-500">*</span></label>
@@ -482,44 +480,57 @@ export function BatchSubmission() {
                             </div>
                         </div>
 
+                        {/* 3. [NEW] Required Tests */}
+                        <div className="space-y-6">
+                            <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+                                <FlaskConical className="w-5 h-5 text-emerald-600" /> Required Inspections
+                            </h2>
+                            <p className="text-sm text-slate-500">Select all tests required for this batch. This information is used to match you with a certified QA Agency.</p>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {availableTests.map((test) => (
+                                    <label key={test} className={`
+                                        flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all
+                                        ${(formData.tests || []).includes(test) 
+                                            ? 'bg-emerald-50 border-emerald-500 shadow-sm' 
+                                            : 'bg-white border-slate-200 hover:bg-slate-50'}
+                                    `}>
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                                            checked={(formData.tests || []).includes(test)}
+                                            onChange={() => toggleTest(test)}
+                                        />
+                                        <span className="text-sm font-medium text-slate-700">{test}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 4. Documentation */}
                         <div className="space-y-6">
                             <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">Documentation</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Lab Reports (PDF)</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Lab Reports (Optional PDF)</label>
                                     <div onClick={triggerLabUpload} className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer bg-slate-50/50 transition-colors">
                                         <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                                        <p className="text-sm font-medium text-slate-700">Click to upload files for tests</p>
+                                        <p className="text-sm font-medium text-slate-700">Upload existing reports</p>
                                     </div>
-                                    {labReports.length > 0 && (
-                                        <div className="mt-3 space-y-2">
-                                            {labReports.map((file, index) => (
-                                                <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
-                                                    <FileText className="w-4 h-4 text-slate-500" />
-                                                    <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
-                                                    <button type="button" onClick={() => removeFile('lab', index)}><X className="w-4 h-4" /></button>
-                                                </div>
-                                            ))}
+                                    {/* File List (Simple) */}
+                                    {labReports.map((file, i) => (
+                                        <div key={i} className="flex justify-between text-xs mt-2 bg-slate-100 p-2 rounded">
+                                            <span>{file.name}</span>
+                                            <button type="button" onClick={() => removeFile('lab', i)}><X className="w-3 h-3" /></button>
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">Farm Photos (JPG/PNG)</label>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Farm Photos (Optional)</label>
                                     <div onClick={triggerPhotoUpload} className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-500 hover:bg-emerald-50 cursor-pointer bg-slate-50/50 transition-colors">
-                                        <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-                                        <p className="text-sm font-medium text-slate-700">Click to upload field photos</p>
+                                        <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+                                        <p className="text-sm font-medium text-slate-700">Upload field photos</p>
                                     </div>
-                                    {farmPhotos.length > 0 && (
-                                        <div className="mt-3 space-y-2">
-                                            {farmPhotos.map((file, index) => (
-                                                <div key={index} className="flex items-center gap-2 p-2 bg-slate-50 rounded border border-slate-200">
-                                                    <ImageIcon className="w-4 h-4 text-slate-500" />
-                                                    <span className="text-sm text-slate-700 flex-1 truncate">{file.name}</span>
-                                                    <button type="button" onClick={() => removeFile('photo', index)}><X className="w-4 h-4" /></button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -528,8 +539,9 @@ export function BatchSubmission() {
                             <button type="button" onClick={() => handleSetView('list')} className="px-6 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                                 Cancel
                             </button>
-                            <button type="submit" onClick={handleRunMatch} disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50">
-                                {isSubmitting ? 'Submitting...' : 'Submit Batch'}
+                            <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50 flex items-center gap-2">
+                                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {isSubmitting ? 'Processing...' : 'Submit Batch'}
                             </button>
                         </div>
                     </form>
