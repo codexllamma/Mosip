@@ -1,11 +1,13 @@
-import { NextResponse,NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { certId: string } }
+  // 1. Update the type definition to expect a Promise
+  { params }: { params: Promise<{ certId: string }> }
 ) {
-  const { certId } = params;
+  // 2. Await the params object before destructuring
+  const { certId } = await params;
 
   const certificate = await prisma.certificate.findUnique({
     where: { id: certId },
