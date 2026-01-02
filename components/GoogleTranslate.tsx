@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { Languages, ChevronDown, Check } from "lucide-react";
+import { useVoiceNav } from "@/contexts/VoiceContext";
 
 declare global {
   interface Window {
@@ -8,6 +9,17 @@ declare global {
     googleTranslateElementInit: () => void;
   }
 }
+
+const VOICE_LANG_MAP: Record<string, string> = {
+  en: "en-US",
+  hi: "hi-IN",
+  mr: "mr-IN",
+  es: "es-ES",
+  fr: "fr-FR",
+  de: "de-DE",
+};
+
+
 
 const LANGUAGES = [
   { label: "English", code: "en" },
@@ -22,6 +34,7 @@ const GoogleTranslate = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState("en");
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const { setVoiceLang } = useVoiceNav();
 
   // 1. Handle Cookies
   useEffect(() => {
@@ -40,6 +53,7 @@ const GoogleTranslate = () => {
     }
   }, []);
 
+  
   // 2. The DOM Assassin (Removes the iframe banner AFTER translation is ready)
   useEffect(() => {
     // Add global styles to hide the banner
@@ -102,6 +116,7 @@ const GoogleTranslate = () => {
       googleSelect.value = langCode;
       googleSelect.dispatchEvent(new Event("change", { bubbles: true }));
       setCurrentLang(langCode);
+      setVoiceLang(VOICE_LANG_MAP[langCode] || "en-US");
       setIsOpen(false);
     }
   };
