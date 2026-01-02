@@ -19,8 +19,6 @@ const VOICE_LANG_MAP: Record<string, string> = {
   de: "de-DE",
 };
 
-
-
 const LANGUAGES = [
   { label: "English", code: "en" },
   { label: "Hindi (हिंदी)", code: "hi" },
@@ -44,8 +42,6 @@ const GoogleTranslate = () => {
       if (parts.length === 2) {
         const langCode = parts.pop()?.split(";").shift();
         if (langCode) {
-           // Cookie format is usually /auto/en or /en/es
-           // We just want the last 2 chars
            const target = langCode.substring(langCode.length - 2);
            setCurrentLang(target);
         }
@@ -53,36 +49,7 @@ const GoogleTranslate = () => {
     }
   }, []);
 
-  
-  // 2. The DOM Assassin (Removes the iframe banner AFTER translation is ready)
-  useEffect(() => {
-    // Add global styles to hide the banner
-    const styleId = 'google-translate-banner-hide';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.innerHTML = `
-        body {
-          top: 0 !important;
-          position: static !important;
-        }
-        .goog-te-banner-frame {
-          display: none !important;
-          visibility: hidden !important;
-        }
-        iframe.goog-te-banner-frame {
-          display: none !important;
-        }
-        iframe.skiptranslate {
-          display: none !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
-
-  // 3. Initialize Script
+  // 2. Initialize Script
   useEffect(() => {
     window.googleTranslateElementInit = () => {
       if (window.google && window.google.translate) {
@@ -91,6 +58,8 @@ const GoogleTranslate = () => {
             pageLanguage: "en",
             includedLanguages: LANGUAGES.map((l) => l.code).join(","),
             autoDisplay: false,
+            // layout: Vertical usually generates less UI clutter than the default banner
+            layout: window.google.translate.TranslateElement.InlineLayout.VERTICAL, 
           },
           "google_translate_element"
         );
@@ -109,7 +78,7 @@ const GoogleTranslate = () => {
     }
   }, []);
 
-  // 4. Change Language Helper
+  // 3. Change Language Helper
   const changeLanguage = (langCode: string) => {
     const googleSelect = document.querySelector(".goog-te-combo") as HTMLSelectElement;
     if (googleSelect) {
@@ -132,7 +101,7 @@ const GoogleTranslate = () => {
   }, []);
 
   return (
-    <div className="relative z-50" ref={wrapperRef}>
+    <div className="relative z-10000" ref={wrapperRef}>
       {/* Custom Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -169,10 +138,7 @@ const GoogleTranslate = () => {
         </div>
       )}
 
-      {/* THE ACTUAL GOOGLE WIDGET CONTAINER 
-         We hide it with visibility: hidden to keep it in DOM but invisible.
-         We position it absolutely to prevent layout shift.
-      */}
+      {/* THE ACTUAL GOOGLE WIDGET CONTAINER */}
       <div 
         id="google_translate_element" 
         className="absolute top-0 left-0 w-px h-px overflow-hidden opacity-0 pointer-events-none"
@@ -181,54 +147,56 @@ const GoogleTranslate = () => {
 
       {/* FORCEFUL CSS OVERRIDES */}
       <style>{`
-        /* Hide the top banner iframe */
-        .goog-te-banner-frame {
+        /* 1. Hide the Google Loading Spinner / Icon */
+        .VIpgJd-ZVi9od-aZ2wEe-OiiCO, 
+        .VIpgJd-ZVi9od-aZ2wEe-OiiCO-ti6hGc {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* 2. Hide the Top Banner Iframe (Aggressive) */
+        iframe.goog-te-banner-frame {
             display: none !important;
             visibility: hidden !important;
             height: 0 !important;
             width: 0 !important;
         }
         
-        /* Prevent body shift */
+        .goog-te-banner-frame {
+            display: none !important;
+        }
+        
+        /* 3. Reset Body Position (Prevent the top push) */
         body {
             top: 0px !important;
+            margin-top: 0px !important;
             position: static !important;
         }
 
-        /* Hide the Google widget container if it tries to show */
+        /* 4. Hide the Google widget container */
         .goog-te-gadget {
-            display: none !important;
+            visibility: hidden !important;
+            position: absolute !important;
+            top: -9999px !important;
             height: 0 !important;
             overflow: hidden !important;
         }
 
-        /* Hide the tooltips */
-        .goog-tooltip {
-            display: none !important;
-        }
-        .goog-tooltip:hover {
-            display: none !important;
-        }
-        
-        /* Hide the 'Original Text' popup */
-        #goog-gt-tt {
+        /* 5. Hide Tooltips and Popups */
+        .goog-tooltip, 
+        #goog-gt-tt, 
+        .goog-te-balloon-frame {
             display: none !important;
             visibility: hidden !important;
         }
         
-        /* Remove the highlight on translated text */
+        /* 6. Remove text highlight style */
         .goog-text-highlight {
             background-color: transparent !important;
             border: none !important; 
             box-shadow: none !important;
-        }
-
-        /* Hide the "Powered by Google" branding */
-        .goog-logo-link {
-            display: none !important;
-        }
-        .goog-te-gadget {
-            color: transparent !important;
         }
       `}</style>
     </div>
