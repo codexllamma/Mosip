@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const results = await matchExporterUsingCity(pincode, tests, {
       distanceWeight: 0.7,
       availabilityWeight: 0.3,
-      topK: 5
+      topK: 6
     });
 
     return NextResponse.json(results);

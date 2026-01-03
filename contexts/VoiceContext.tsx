@@ -10,13 +10,16 @@ interface VoiceContextType {
   // New: Global Form State
   formData: any;
   setFormField: (field: string, value: any) => void;
+  voiceLang: string;
+  setVoiceLang: (lang: string) => void;
 }
 
 const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
 
 export function VoiceProvider({ children }: { children: React.ReactNode }) {
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
-  
+  const [voiceLang, setVoiceLang] = useState('en-US');
+
   // Shared form state
   const [formData, setFormData] = useState({
     cropType: '',
@@ -37,7 +40,7 @@ export function VoiceProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <VoiceContext.Provider value={{ currentView, navigateTo, formData, setFormField }}>
+    <VoiceContext.Provider value={{ currentView, navigateTo, formData, setFormField, voiceLang, setVoiceLang}}>
       {children}
     </VoiceContext.Provider>
   );
