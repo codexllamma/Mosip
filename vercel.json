@@ -1,0 +1,17 @@
+{
+  "headers": [
+    {
+      "source": "/vc.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/ld+json"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ]
+}
