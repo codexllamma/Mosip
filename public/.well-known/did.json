@@ -1,21 +1,15 @@
 {
-  "@context": [
-    "https://www.w3.org/ns/did/v1",
-    "https://w3id.org/security/suites/ed25519-2020/v1"
-  ],
+  "@context": "https://www.w3.org/ns/did/v1",
   "id": "did:web:mosip-zeta.vercel.app",
   "verificationMethod": [
     {
-      "id": "did:web:mosip-zeta.vercel.app#key-1",
+      "id": "did:web:mosip-zeta.vercel.app#key-0",
       "type": "Ed25519VerificationKey2020",
       "controller": "did:web:mosip-zeta.vercel.app",
       "publicKeyMultibase": "z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
     }
   ],
   "assertionMethod": [
-    "did:web:mosip-zeta.vercel.app#key-1"
-  ],
-  "authentication": [
-    "did:web:mosip-zeta.vercel.app#key-1"
+    "did:web:mosip-zeta.vercel.app#key-0"
   ]
 }
