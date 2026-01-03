@@ -14,7 +14,7 @@ interface ScoredProfile {
   score: number;
 }
 
-interface MatchResult {
+export interface MatchResult {
   qaAgencies: ScoredProfile[];
   all_scored: ScoredProfile[];
   golden: boolean;
@@ -91,7 +91,7 @@ function normalize(values: number[]): number[] {
 // 3. Main Matching Function
 // ---------------------------------------------------------
 
-interface MatchOptions {
+export interface MatchOptions {
   distanceWeight?: number;
   availabilityWeight?: number;
   topK?: number;

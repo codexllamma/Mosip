@@ -2,7 +2,7 @@
 
 import { matchExporterUsingCity } from '@/lib/matchingService'; // Import the function we made before
 
-export async function findBestMatchAction(pincode: string, tests: string[]) {
+export async function findBestMatchAction(pincode: string, tests: string[], golden: boolean) {
   try {
     // Basic validation
     if (!pincode || tests.length === 0) {
@@ -10,7 +10,7 @@ export async function findBestMatchAction(pincode: string, tests: string[]) {
     }
 
     // Call the heavy logic we wrote in the service file
-    const result = await matchExporterUsingCity(pincode, tests);
+    const result = await matchExporterUsingCity(pincode, tests, golden);
 
     // Return simple JSON data to the client
     return { success: true, data: result };

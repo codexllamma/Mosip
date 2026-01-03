@@ -1,15 +1,14 @@
 // app/api/batches/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db"; 
-import { matchExporterUsingCity } from "@/lib/matchingService";
+import { matchExporterUsingCity, MatchOptions,MatchResult } from "@/lib/matchingService";
 
-// Mock Session (Temporarily use a mock user ID if NextAuth session is complex)
+// Mock Session
 const MOCK_EXPORTER_EMAIL = "contact@bharatexports.com";
 
 // --- GET Handler: Fetch Batches for the Exporter ---
 export async function GET(req: NextRequest) {
     try {
-        // --- TEMPORARY MOCK AUTH for development ---
         const exporter = await prisma.user.findUnique({
             where: { email: MOCK_EXPORTER_EMAIL },
         });
@@ -17,18 +16,16 @@ export async function GET(req: NextRequest) {
         if (!exporter) {
              return NextResponse.json({ message: "Mock Exporter not found" }, { status: 404 });
         }
-        const exporterId = exporter.id;
         
-        // 2. Fetch Batches related to this exporterId
         const batches = await prisma.batch.findMany({
             where: {
-                exporterId: exporterId,
+                exporterId: exporter.id,
             },
             orderBy: {
                 createdAt: 'desc',
             },
             include: {
-                assignedInspector: true // Include inspector details so frontend shows who is assigned
+                assignedInspector: true 
             }
         });
 
@@ -54,7 +51,8 @@ export async function POST(req: NextRequest) {
           exporterEmail = MOCK_EXPORTER_EMAIL,
           variety = "Grade A",
           pinCode = "400092",
-          tests 
+          tests,
+          golden = false // Added golden from body, defaults to false
         } = body;
 
         // 1. Find or Create Exporter
@@ -75,7 +73,6 @@ export async function POST(req: NextRequest) {
         const batchNumber = `BTH-${Date.now().toString().slice(-6)}`;
 
         // 2. Create Batch (Initial Status: SUBMITTED)
-        // We start as SUBMITTED, and only move to PENDING_APPROVAL if matching succeeds
         let newBatch = await prisma.batch.create({
           data: {
             batchNumber,
@@ -93,53 +90,60 @@ export async function POST(req: NextRequest) {
           }
         });
 
-        // 3. Auto-Assign Logic (The "Matching" Step)
+        // 3. Auto-Assign Logic (Updated to match function definition)
         console.log(`Running matching logic for Batch ${batchNumber} at Pincode ${pinCode}...`);
         
         try {
-            // Call the matching service directly
-            const matchResult = await matchExporterUsingCity(parseInt(pinCode), tests || []);
-            
-            if (matchResult.best) {
-                console.log(`Best match found: ${matchResult.best.qa_name} (Score: ${matchResult.best.score})`);
+            // Define Match Options based on your intended implementation
+            const matchOptions: MatchOptions = {
+                distanceWeight: 0.7,
+                availabilityWeight: 0.3,
+                topK: 6
+            };
 
-                // We have the QAProfile ID, we need the User ID to link it in the Batch table
+            // CORRECTED CALL: Included 'golden' and 'matchOptions'
+            const matchResult = await matchExporterUsingCity(
+                pinCode,         // pincode
+                tests || [],      // testsToBeDone
+                golden,           // golden (boolean)
+                matchOptions      // options (MatchOptions)
+            );
+            
+            if (matchResult.qaAgencies) {
+                console.log(`Best match found: ${matchResult.qaAgencies[0].qa_name} (Score: ${matchResult.qaAgencies[0].score})`);
+
                 const qaProfile = await prisma.qAProfile.findUnique({
-                    where: { id: matchResult.best.qa_profile_id },
+                    where: { id: matchResult.qaAgencies[0].qa_profile_id },
                     include: { user: true }
                 });
 
                 if (qaProfile && qaProfile.user) {
-                    // 4. Update Batch -> Assigned & Pending Approval
                     newBatch = await prisma.batch.update({
                         where: { id: newBatch.id },
                         data: {
-                            assignedInspectorId: qaProfile.user.id, // Link User ID
-                            status: 'PENDING_APPROVAL' // Change Status
+                            assignedInspectorId: qaProfile.user.id,
+                            status: 'PENDING_APPROVAL' 
                         }
                     });
                     
-                    // Log the assignment
                     await prisma.auditLog.create({
                         data: {
                             action: 'Assigned',
                             entityType: 'Batch',
                             entityId: newBatch.id,
-                            actorId: 'SYSTEM', // System automated action
+                            actorId: 'SYSTEM',
                             details: { 
                                 inspector: qaProfile.user.name, 
-                                matchScore: matchResult.best.score 
+                                matchScore: matchResult.qaAgencies[0].score 
                             }
                         }
                     });
                 }
             } else {
                 console.warn("No suitable inspector found for batch assignment.");
-                // Status remains 'SUBMITTED', admins can manually assign later if needed
             }
         } catch (matchError) {
             console.error("Matching Logic Failed:", matchError);
-            // We don't fail the request, just log it. The batch is created anyway.
         }
 
         // 5. Initial Audit Log (Creation)
