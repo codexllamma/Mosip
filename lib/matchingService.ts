@@ -15,8 +15,8 @@ interface ScoredProfile {
 }
 
 interface MatchResult {
-  best: ScoredProfile | null;
-  candidates: ScoredProfile[];
+  primary: ScoredProfile [];
+  backup: ScoredProfile[];
   all_scored: ScoredProfile[];
 }
 
@@ -104,7 +104,7 @@ export async function matchExporterUsingCity(
   const {
     distanceWeight = 0.7,
     availabilityWeight = 0.3,
-    topK = 5
+    topK = 6
   } = options;
 
   // 1. Geocode the origin (Batch location)
@@ -112,7 +112,7 @@ export async function matchExporterUsingCity(
   
   if (originLat === null || originLng === null) {
     console.error(`Error: Could not geocode origin pincode ${pincode}`);
-    return { best: null, candidates: [], all_scored: [] };
+    return { primary: [], backup: [], all_scored: [] };
   }
 
   // 2. Fetch Active QAs
@@ -134,7 +134,7 @@ export async function matchExporterUsingCity(
   });
 
   if (qaProfiles.length === 0) {
-    return { best: null, candidates: [], all_scored: [] };
+    return { primary: [], backup: [], all_scored: [] };
   }
 
   // 4. Compute raw metrics
@@ -221,9 +221,16 @@ export async function matchExporterUsingCity(
 
   scored.sort((a, b) => a.score - b.score);
 
+  const PRIMARY_COUNT = 3;
+  const BACKUP_COUNT = 3;
+
+  const primary = scored.slice(0, PRIMARY_COUNT);
+  const backup = scored.slice(PRIMARY_COUNT, PRIMARY_COUNT + BACKUP_COUNT);
+
   return {
-    best: scored.length > 0 ? scored[0] : null,
-    candidates: scored.slice(0, topK),
+    primary,
+    backup,
     all_scored: scored,
   };
+
 }
