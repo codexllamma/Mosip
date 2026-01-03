@@ -5,7 +5,7 @@ import { matchExporterUsingCity } from '@/lib/matchingService'; // Adjust path
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { pincode, tests } = body;
+    const { pincode, tests, golden} = body;
 
     if (!pincode || !tests) {
       return NextResponse.json(
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const results = await matchExporterUsingCity(pincode, tests, {
+    const results = await matchExporterUsingCity(pincode, tests, golden,{
       distanceWeight: 0.7,
       availabilityWeight: 0.3,
       topK: 6

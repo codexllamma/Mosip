@@ -15,10 +15,11 @@ interface ScoredProfile {
 }
 
 interface MatchResult {
-  primary: ScoredProfile [];
-  backup: ScoredProfile[];
+  qaAgencies: ScoredProfile[];
   all_scored: ScoredProfile[];
+  golden: boolean;
 }
+
 
 // ---------------------------------------------------------
 // 1. Geocoder Helper (Replaces geopy.Nominatim)
@@ -94,17 +95,19 @@ interface MatchOptions {
   distanceWeight?: number;
   availabilityWeight?: number;
   topK?: number;
+  golden?: boolean
 }
 
 export async function matchExporterUsingCity(
   pincode: number | string,
   testsToBeDone: string[],
+  golden: boolean,
   options: MatchOptions = {}
 ): Promise<MatchResult> {
   const {
     distanceWeight = 0.7,
     availabilityWeight = 0.3,
-    topK = 6
+    topK = 6,
   } = options;
 
   // 1. Geocode the origin (Batch location)
@@ -112,7 +115,7 @@ export async function matchExporterUsingCity(
   
   if (originLat === null || originLng === null) {
     console.error(`Error: Could not geocode origin pincode ${pincode}`);
-    return { primary: [], backup: [], all_scored: [] };
+    return { qaAgencies: [], all_scored: [], golden: false};
   }
 
   // 2. Fetch Active QAs
@@ -134,7 +137,7 @@ export async function matchExporterUsingCity(
   });
 
   if (qaProfiles.length === 0) {
-    return { primary: [], backup: [], all_scored: [] };
+    return { qaAgencies: [], all_scored: [], golden:false };
   }
 
   // 4. Compute raw metrics
@@ -227,10 +230,15 @@ export async function matchExporterUsingCity(
   const primary = scored.slice(0, PRIMARY_COUNT);
   const backup = scored.slice(PRIMARY_COUNT, PRIMARY_COUNT + BACKUP_COUNT);
 
-  return {
-    primary,
-    backup,
-    all_scored: scored,
-  };
+  const qaAgencies = golden
+  ? scored.slice(0, 3)   // Golden → 3 QA agencies
+  : scored.slice(0, 1);  // Normal → 1 QA agency
+
+return {
+  golden,
+  qaAgencies,
+  all_scored: scored,
+};
+
 
 }
