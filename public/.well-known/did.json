@@ -6,7 +6,7 @@
       "id": "did:web:mosip-zeta.vercel.app#key-0",
       "type": "Ed25519VerificationKey2020",
       "controller": "did:web:mosip-zeta.vercel.app",
-      "publicKeyMultibase": "z6ou69UdguGBS5BodigWmyzwrFpPRqNckD2CZhr9sgiAw"
+      "publicKeyMultibase": "z6Mkhmta28eQZJ3syB89HKGict291zs7e8tav7gw53UBCiTa"
     }
   ],
   "assertionMethod": [
