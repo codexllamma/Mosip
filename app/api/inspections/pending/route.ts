@@ -1,3 +1,4 @@
+// app/api/inspections/pending/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -22,42 +23,45 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 3. Fetch Batches filtered by assignedInspectorId
-    const batches = await prisma.batch.findMany({
+    // 3. Fetch Batches via the Inspection table
+    // We want inspections assigned to THIS user that are still PENDING
+    const myInspections = await prisma.inspection.findMany({
       where: {
-        status: {
-          in: ['SUBMITTED','PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CERTIFIED']
-        },
-        // [CRITICAL CHANGE] Only fetch batches assigned to THIS user
-        assignedInspectorId: user.id 
+        inspectorId: user.id,
+        status: 'PENDING'
       },
       include: {
-        exporter: true  
+        batch: {
+          include: { exporter: true }
+        }
       },
       orderBy: {
-        updatedAt: 'desc'
+        inspectedAt: 'desc' // or createdAt
       }
     });
 
     // 4. Map Prisma Data to Frontend Interface
-    const formattedBatches = batches.map(batch => ({
-      id: batch.id,
-      batch_number: batch.batchNumber,
-      exporter_name: batch.exporter.organization || batch.exporter.name,
-      crop_type: batch.cropType,
-      quantity_kg: batch.quantity,
-      location: batch.location,
-      destination_country: batch.destinationCountry,
-      harvest_date: batch.harvestDate,
-      submitted_at: batch.updatedAt,  
-      status: batch.status.toLowerCase(),
-      variety: batch.variety,
-      unit: batch.unit,
-      
-      // Ensure these match your frontend expectations
-      lab_reports: [],
-      farm_photos: []
-    }));
+    const formattedBatches = myInspections.map(inspection => {
+      const batch = inspection.batch;
+      return {
+        id: batch.id,                    // The Batch ID
+        inspection_id: inspection.id,    // [CRITICAL] The specific Inspection ID to update later
+        batch_number: batch.batchNumber,
+        exporter_name: batch.exporter.organization || batch.exporter.name,
+        crop_type: batch.cropType,
+        quantity_kg: batch.quantity,
+        location: batch.location,
+        destination_country: batch.destinationCountry,
+        harvest_date: batch.harvestDate,
+        submitted_at: batch.updatedAt,  
+        status: batch.status.toLowerCase(),
+        variety: batch.variety,
+        unit: batch.unit,
+        
+        lab_reports: [],
+        farm_photos: []
+      };
+    });
 
     return NextResponse.json(formattedBatches);
 

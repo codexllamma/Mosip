@@ -2,10 +2,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// generator pyclient {
-//   provider = "prisma-client-py"
-// }
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -22,8 +18,10 @@ model User {
   did             String?      @unique
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @default(now()) @updatedAt
+  
   assignedBatches Batch[]      @relation("AssignedInspector")
   exportedBatches Batch[]      @relation("BatchExporter")
+  
   exporter        Exporter?
   inspections     Inspection[]
   qaProfile       QAProfile?
@@ -77,28 +75,43 @@ model Batch {
   traceabilityCode    String?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
+  
   exporterId          String
-  assignedInspectorId String?
-  tests               String[]
-  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
   exporter            User         @relation("BatchExporter", fields: [exporterId], references: [id])
+  
+  // Kept for backward compatibility, but primary logic moves to 'inspections'
+  assignedInspectorId String?
+  assignedInspector   User?        @relation("AssignedInspector", fields: [assignedInspectorId], references: [id])
+  
+  tests               String[]
   certificate         Certificate?
-  inspection          Inspection?
+  
+  // CHANGED: One-to-Many relation for Multi-Inspector support
+  inspections         Inspection[] 
 }
 
 model Inspection {
   id               String   @id @default(uuid())
-  moisture         String
-  pesticideResidue String
-  organic          Boolean
+  
+  // CHANGED: Fields are nullable because they are empty at assignment
+  moisture         String?
+  pesticideResidue String?
+  organic          Boolean?
   heavyMetals      String?
   grade            String?
   isoCode          String?
   notes            String?
+  
+  // NEW: Tracks status of individual inspector's task
+  status           String   @default("PENDING") // PENDING, COMPLETED
+  
   inspectedAt      DateTime @default(now())
-  batchId          String   @unique
-  inspectorId      String
+  
+  // CHANGED: Removed @unique to allow multiple inspections per batch
+  batchId          String   
   batch            Batch    @relation(fields: [batchId], references: [id])
+  
+  inspectorId      String
   inspector        User     @relation(fields: [inspectorId], references: [id])
 }
 
@@ -111,8 +124,10 @@ model Certificate {
   issuedAt     DateTime
   expiresAt    DateTime
   createdAt    DateTime              @default(now())
+  
   batchId      String                @unique
   batch        Batch                 @relation(fields: [batchId], references: [id])
+  
   vc           VerifiableCredential?
 }
 
@@ -138,6 +153,25 @@ model AuditLog {
   createdAt  DateTime @default(now())
 }
 
+model CertifyData {
+  id              String   @id @default(uuid())
+  certificateId   String   @unique 
+  batchNumber     String
+  product         String
+  grade           String
+  origin          String
+  quantity        String
+  expiryDate      String
+  exporterName    String
+  inspectorName   String
+  moisture        String
+  pesticide       String
+  organic         Boolean
+  exporterDid     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 enum UserRole {
   EXPORTER
   QA_AGENCY
@@ -151,28 +185,4 @@ enum BatchStatus {
   APPROVED
   REJECTED
   CERTIFIED
-}
-
-model CertifyData {
-  id              String   @id @default(uuid())
-  certificateId   String   @unique 
-  
-  
-  batchNumber     String
-  product         String
-  grade           String
-  origin          String
-  quantity        String
-  expiryDate      String
-  exporterName    String
-  inspectorName   String
-  moisture        String
-  pesticide       String
-  organic         Boolean
-  
-  // Identity Linking: This matches the 'sub' field (DID) in the user's OIDC Token
-  exporterDid     String?  
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 }

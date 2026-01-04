@@ -1,7 +1,7 @@
 // app/api/batches/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db"; 
-import { matchExporterUsingCity, MatchOptions, MatchResult } from "@/lib/matchingService";
+import { matchExporterUsingCity, MatchOptions } from "@/lib/matchingService";
 
 // Mock Session
 const MOCK_EXPORTER_EMAIL = "contact@bharatexports.com";
@@ -14,14 +14,13 @@ export async function GET(req: NextRequest) {
         });
 
         if (!exporter) {
-            console.error(`[BATCH_API] GET: Mock Exporter (${MOCK_EXPORTER_EMAIL}) not found`);
             return NextResponse.json({ message: "Mock Exporter not found" }, { status: 404 });
         }
         
         const batches = await prisma.batch.findMany({
             where: { exporterId: exporter.id },
             orderBy: { createdAt: 'desc' },
-            include: { assignedInspector: true }
+            include: { inspections: { include: { inspector: true } } }
         });
 
         return NextResponse.json(batches, { status: 200 });
@@ -37,7 +36,6 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
         console.log("[BATCH_API] Incoming Request Body:", JSON.stringify(body, null, 2));
 
-        // FIXED: Destructuring 'pincode' (lowercase 'c') to match your JSON payload
         const { 
           cropType, 
           destinationCountry, 
@@ -47,7 +45,7 @@ export async function POST(req: NextRequest) {
           unit,
           exporterEmail = MOCK_EXPORTER_EMAIL,
           variety,
-          pincode, // Changed from pinCode to match your logs
+          pincode, 
           tests,
           golden = false 
         } = body;
@@ -69,9 +67,7 @@ export async function POST(req: NextRequest) {
         
         const batchNumber = `BTH-${Date.now().toString().slice(-6)}`;
 
-        // 2. Create Batch
-        console.log(`[BATCH_API] Step 2: Creating batch ${batchNumber}. Pincode detected: ${pincode}`);
-        
+        // 2. Create Batch (Initial State)
         let newBatch = await prisma.batch.create({
           data: {
             batchNumber,
@@ -82,7 +78,6 @@ export async function POST(req: NextRequest) {
             quantity: parseFloat(quantity),
             unit: unit || 'kg',
             variety: variety || 'Grade A',
-            // FIXED: Ensure pinCode is a number and not NaN
             pinCode: parseInt(pincode) || 0, 
             status: 'SUBMITTED', 
             tests: tests || [],
@@ -98,7 +93,6 @@ export async function POST(req: NextRequest) {
                 topK: 6
             };
 
-            // Use the parsed pincode here
             const matchResult = await matchExporterUsingCity(
                 parseInt(pincode) || 0,         
                 tests || [],      
@@ -106,32 +100,58 @@ export async function POST(req: NextRequest) {
                 matchOptions      
             );
             
-            if (matchResult?.qaAgencies?.length > 0) {
-                const bestMatch = matchResult.qaAgencies[0];
-                const qaProfile = await prisma.qAProfile.findUnique({
-                    where: { id: bestMatch.qa_profile_id },
-                    include: { user: true }
+            const agenciesToAssign = matchResult.qaAgencies || [];
+            
+            if (agenciesToAssign.length > 0) {
+                console.log(`[BATCH_API] Assigning ${agenciesToAssign.length} inspectors (Golden: ${golden})`);
+
+                // A. Create Inspections
+                await Promise.all(agenciesToAssign.map(async (agency) => {
+                    const qaProfile = await prisma.qAProfile.findUnique({
+                        where: { id: agency.qa_profile_id },
+                        include: { user: true }
+                    });
+
+                    if (qaProfile?.user) {
+                        await prisma.inspection.create({
+                            data: {
+                                batchId: newBatch.id,
+                                inspectorId: qaProfile.user.id,
+                                status: 'PENDING',
+                            }
+                        });
+                        
+                        await prisma.auditLog.create({
+                            data: {
+                                action: 'Assigned',
+                                entityType: 'Batch',
+                                entityId: newBatch.id,
+                                actorId: 'SYSTEM',
+                                details: { inspector: qaProfile.user.name, score: agency.score, type: golden ? "Golden Consensus" : "Standard" }
+                            }
+                        });
+                    }
+                }));
+
+                // B. FIXED: Fetch the valid User ID for the primary inspector
+                // 'agency.qa_profile_id' is a Profile UUID, we need the User UUID.
+                const primaryProfile = await prisma.qAProfile.findUnique({
+                    where: { id: agenciesToAssign[0].qa_profile_id },
+                    select: { userId: true } // Only fetch the User ID
                 });
 
-                if (qaProfile?.user) {
+                if (primaryProfile && primaryProfile.userId) {
                     newBatch = await prisma.batch.update({
                         where: { id: newBatch.id },
                         data: {
-                            assignedInspectorId: qaProfile.user.id,
-                            status: 'PENDING_APPROVAL' 
-                        }
-                    });
-                    
-                    await prisma.auditLog.create({
-                        data: {
-                            action: 'Assigned',
-                            entityType: 'Batch',
-                            entityId: newBatch.id,
-                            actorId: 'SYSTEM',
-                            details: { inspector: qaProfile.user.name, score: bestMatch.score }
+                            status: 'PENDING_APPROVAL',
+                            // Now using the correct User ID
+                            assignedInspectorId: primaryProfile.userId 
                         }
                     });
                 }
+            } else {
+                 console.warn("[BATCH_API] No matching agencies found.");
             }
         } catch (matchError) {
             console.error("[BATCH_API] Assignment Logic Failed (Non-fatal):", matchError);
@@ -144,7 +164,7 @@ export async function POST(req: NextRequest) {
             entityType: 'Batch',
             entityId: newBatch.id,
             actorId: exporter.id,
-            details: { batchNumber, cropType }
+            details: { batchNumber, cropType, golden }
           }
         });
 
