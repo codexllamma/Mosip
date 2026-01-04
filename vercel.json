@@ -4,39 +4,18 @@
     {
       "source": "/vc.json",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/ld+json; charset=utf-8"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
+        { "key": "Content-Type", "value": "application/ld+json; charset=utf-8" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "Content-Encoding", "value": "identity" }
       ]
     },
     {
       "source": "/.well-known/did.json",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/json; charset=utf-8"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
+        { "key": "Content-Type", "value": "application/json; charset=utf-8" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Encoding", "value": "identity" }
       ]
     }
   ]
