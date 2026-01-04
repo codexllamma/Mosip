@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, ExternalLink, AlertCircle, Eye, X, Calendar, Package } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-
+import Link from 'next/link';
 // Define the shape of data coming from the API
 interface PassportData {
   id: string;
@@ -244,15 +244,15 @@ export default function DigitalPassports() {
                   </div>
                   
                   {selectedCert.verification_url && (
-                    <a
-                      href={selectedCert.verification_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline decoration-blue-200 underline-offset-4"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Verify Legitimacy on Blockchain
-                    </a>
+                    
+                  <Link 
+                    href={`/verify/${selectedCert.id}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline decoration-blue-200 underline-offset-4"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    View Verification Page
+                  </Link>
                   )}
                 </div>
               </div>
