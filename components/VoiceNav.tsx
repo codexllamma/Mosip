@@ -7,7 +7,7 @@ import { useRole } from "@/contexts/RoleContext";
 
 export default function VoiceNav() {
   const { role } = useRole();
-  const { navigateTo, setFormField, currentView, voiceLang } = useVoiceNav();
+  const { navigateTo, setFormField, currentView, voiceLang, formData} = useVoiceNav();
 
   const [isListening, setIsListening] = useState(false);
   const [showAuthError, setShowAuthError] = useState(false);
@@ -22,6 +22,7 @@ export default function VoiceNav() {
   const viewRef = useRef(currentView);
   const setFormRef = useRef(setFormField);
   const voiceLangRef = useRef(voiceLang);
+  const formDataRef = useRef(formData);
 
   // Keep refs updated
   useEffect(() => {
@@ -30,7 +31,8 @@ export default function VoiceNav() {
     viewRef.current = currentView;
     setFormRef.current = setFormField;
     voiceLangRef.current = voiceLang;
-  }, [navigateTo, role, currentView, setFormField, voiceLang]);
+    formDataRef.current = formData;
+  }, [navigateTo, role, currentView, setFormField, voiceLang, formData]);
 
   // Handle language change (STOP only, restart happens in onend)
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function VoiceNav() {
     }
   }, [voiceLang]);
 
+  // Init SpeechRecognition ONCE
   // Init SpeechRecognition ONCE
   useEffect(() => {
     const SpeechRecognition =
@@ -76,32 +79,61 @@ export default function VoiceNav() {
         const navigate = navRef.current;
         const activeView = viewRef.current;
         const updateField = setFormRef.current;
+        const currentData = formDataRef.current || {}; // Access latest data
 
         // --- Navigation ---
-          if (text.includes("audit") || text.includes("log")) {
+        if (text.includes("audit") || text.includes("log")) {
           if (currentRole !== "ADMIN") {
             setShowAuthError(true);
             setTimeout(() => setShowAuthError(false), 3000);
-          } 
-          else navigate("audit-logs");
-        } 
-        else if (text.includes("dashboard") || text.includes("home") || text.includes("डैशबोर्ड") || text.includes("panel")) navigate("dashboard");
-        else if ((text.includes("batch") || text.includes("submission") || text.includes("बैच") || text.includes("सबमिशन") || text.includes("lotes")) && !(text.includes("make") || text.includes("create") || text.includes("new") || text.includes("form") || text.includes("नए"))) {
-            if (currentRole === "EXPORTER") navigate("batch-submission");
-            else {
-              setShowAuthError(true);
-              setTimeout(() => setShowAuthError(false), 3000);
-            }
-        } 
-        else if (text.includes("make") || text.includes("create") || text.includes("new") || text.includes("form") || text.includes("नए") || text.includes("nuevo")) {
-            if (currentRole === "EXPORTER") navigate("form");
-            else {
-              setShowAuthError(true);
-              setTimeout(() => setShowAuthError(false), 3000);
-            }
+          } else navigate("audit-logs");
+        } else if (
+          text.includes("dashboard") ||
+          text.includes("home") ||
+          text.includes("डैशबोर्ड") ||
+          text.includes("panel")
+        )
+          navigate("dashboard");
+        else if (
+          (text.includes("batch") ||
+            text.includes("submission") ||
+            text.includes("बैच") ||
+            text.includes("सबमिशन") ||
+            text.includes("lotes")) &&
+          !(
+            text.includes("make") ||
+            text.includes("create") ||
+            text.includes("new") ||
+            text.includes("form") ||
+            text.includes("नए")
+          )
+        ) {
+          if (currentRole === "EXPORTER") navigate("batch-submission");
+          else {
+            setShowAuthError(true);
+            setTimeout(() => setShowAuthError(false), 3000);
           }
-        else if(text.includes("passports") || text.includes("passport") || text.includes("digital") || text.includes("पासपोर्ट") || text.includes("pasaportes")) navigate("digital-passports");
-        
+        } else if (
+          text.includes("make") ||
+          text.includes("create") ||
+          text.includes("new") ||
+          text.includes("form") ||
+          text.includes("नया") ||
+          text.includes("nuevo")
+        ) {
+          if (currentRole === "EXPORTER") navigate("form");
+          else {
+            setShowAuthError(true);
+            setTimeout(() => setShowAuthError(false), 3000);
+          }
+        } else if (
+          text.includes("passports") ||
+          text.includes("passport") ||
+          text.includes("digital") ||
+          text.includes("पासपोर्ट") ||
+          text.includes("pasaportes")
+        )
+          navigate("digital-passports");
 
         // --- Form Autofill ---
         if (activeView === "form") {
@@ -110,40 +142,171 @@ export default function VoiceNav() {
               updateField("cropType", "Basmati Rice");
             }
           } else if (text.includes("destination") || text.includes("country")) {
-              const val = text.split(/to |is /).pop();
-              if (val) updateField("destinationCountry", capitalizeWords(val));
+            const val = text.split(/to |is /).pop();
+            if (val) updateField("destinationCountry", capitalizeWords(val));
           } else if (text.includes("location") || text.includes("farm")) {
-              const val = text.split(/to |is /).pop();
-              if (val) updateField("location", capitalizeWords(val));
+            const val = text.split(/to |is /).pop();
+            if (val) updateField("location", capitalizeWords(val));
           } else if (text.includes("pin code") || text.includes("zip")) {
-              const digits = text.match(/\d+/)?.[0];
-              if (digits) updateField("pincode", digits);
+            const digits = text.match(/\d+/)?.[0];
+            if (digits) updateField("pincode", digits);
           } else if (text.includes("quantity") || text.includes("amount")) {
-              const digits = text.match(/\d+/)?.[0];
-              if (digits) updateField("quantity", digits);
+            const digits = text.match(/\d+/)?.[0];
+            if (digits) updateField("quantity", digits);
+          } else if (text.includes("organic") || text.includes("certified")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            if (isChecked && !currentTests.includes("Organic")) {
+              currentTests.push("Organic");
+              updateField("tests", currentTests);
+            } else if (isUnchecked && currentTests.includes("Organic")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Organic"
+              );
+              updateField("tests", newTests);
+            }
           }
+          else if (text.includes("moisture") || text.includes("percentage")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            if (isChecked && !currentTests.includes("Moisture")) {
+              currentTests.push("Moisture");
+              updateField("tests", currentTests);
+            } else if (isUnchecked && currentTests.includes("Moisture")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Moisture"
+              );
+              updateField("tests", newTests);
+            }
+          }
+          else if (text.includes("pesticide") || text.includes("pesticides")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            if (isChecked && !currentTests.includes("Pesticide")) {
+              currentTests.push("Pesticide");
+              updateField("tests", currentTests);
+            } else if (isUnchecked && currentTests.includes("Pesticide")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Pesticide"
+              );
+              updateField("tests", newTests);
+            }
+          }
+          else if (text.includes("Aflatoxin") || text.includes("levels")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            if (isChecked && !currentTests.includes("Aflatoxin")) {
+              currentTests.push("Aflatoxin");
+              updateField("tests", currentTests);
+            } else if (isUnchecked && currentTests.includes("Aflatoxin")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Aflatoxin"
+              );
+              updateField("tests", newTests);
+            }
+          }
+          else if (text.includes("Heavy") || text.includes("metals")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            if (isChecked && !currentTests.includes("Heavy")) {
+              currentTests.push("Heavy Metals");
+              updateField("tests", currentTests);
+            } else if (isUnchecked && currentTests.includes("Heavy")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Heavy Metals"
+              );
+              updateField("tests", newTests);
+            }
+          }
+          else if (text.includes("grade") || text.includes("grade a")) {
+            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+
+            // Get current tests array safely
+            const currentTests = Array.isArray(currentData.tests)
+              ? [...currentData.tests]
+              : [];
+
+            // FIX: Check for the exact string "Grade A"
+            if (isChecked && !currentTests.includes("Grade A")) {
+              currentTests.push("Grade A");
+              updateField("tests", currentTests);
+            } 
+            // FIX: Check for the exact string "Grade A"
+            else if (isUnchecked && currentTests.includes("Grade A")) {
+              const newTests = currentTests.filter(
+                (t: string) => t !== "Grade A"
+              );
+              updateField("tests", newTests);
+            }
+        }
+        else if (text.includes("golden") || text.includes("regular")) {
+          if (text.includes("regular")) {
+            console.log("Voice Command: Setting Passport Type to Regular");
+            updateField("passportType", "Regular");
+          } 
+          else if (text.includes("golden")) {
+            console.log("Voice Command: Setting Passport Type to Golden");
+            updateField("passportType", "Golden");
+          }
+        }
         }
       };
 
+      // --- FIX: Placed INSIDE the 'if' block so 'recognition' is in scope ---
       recognition.onend = () => {
-        recognition.lang = voiceLangRef.current;
+        // Use ref to handle restarts
+        if (recognitionRef.current) {
+          recognitionRef.current.lang = voiceLangRef.current;
+        }
 
-        if (pendingRestartRef.current && isEnabledRef.current) {
-          pendingRestartRef.current = false;
+        if (isEnabledRef.current) {
           try {
-            recognition.start(); // ✅ SAFE restart
+            recognitionRef.current?.start();
+            console.log("Voice recognition automatically restarted.");
           } catch (e) {
-            console.error("Restart failed:", e);
+            // Ignore if already started
           }
         } else {
           setIsListening(false);
+          console.log("Voice recognition stopped by user.");
         }
       };
 
+      // Assign to ref
       recognitionRef.current = recognition;
     }
   }, []);
-
   const toggleMic = () => {
     if (isEnabledRef.current) {
       isEnabledRef.current = false;
