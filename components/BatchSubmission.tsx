@@ -10,6 +10,7 @@ import {
 import { useRole } from '../contexts/RoleContext';
 import { useVoiceNav } from '@/contexts/VoiceContext'; 
 import { findBestMatchAction } from '@/app/actions/match-actions';
+import { translateToEnglish } from '@/app/api/actions/translate';
 
 // --- Types ---
 interface FormData {
@@ -180,23 +181,29 @@ export function BatchSubmission() {
         setIsSubmitting(true);
         setApiError(null);
 
-        try {
-            // 1. Prepare Data
-            const submissionData = {
-                ...formData,
-                quantity: parseFloat(formData.quantity),
+       try {
+        // --- ADD TRANSLATION TUNNEL HERE ---
+        // We translate the user input fields before building submissionData
+        const translatedCrop = await translateToEnglish(formData.cropType);
+        const translatedLocation = await translateToEnglish(formData.location);
+        const translatedCountry = await translateToEnglish(formData.destinationCountry);
 
-                // Ensure tests are sent from formData
-                tests: formData.tests || [] 
-            };
+        // 1. Prepare Data with translated values
+        const submissionData = {
+            ...formData,
+            cropType: translatedCrop,       // Now in English
+            location: translatedLocation,   // Now in English
+            destinationCountry: translatedCountry, // Now in English
+            quantity: parseFloat(formData.quantity),
+            tests: formData.tests || [] 
+        };
 
-            // 2. Submit to API (Create Batch + Auto Match)
-            const response = await fetch('/api/batches', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(submissionData),
-            });
-
+        // 2. Submit to API 
+        const response = await fetch('/api/batches', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(submissionData),
+        });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || "Failed to create new batch.");
@@ -430,12 +437,12 @@ export function BatchSubmission() {
                                 <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g. Basmati Rice" value={formData.cropType} onChange={(e) => handleInputChange('cropType', e.target.value)} 
-                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="notranslate text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                                 <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Destination Country <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g. Germany" value={formData.destinationCountry} onChange={(e) => handleInputChange('destinationCountry', e.target.value)} 
-                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="notranslate text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                             </div>
                         </div>
@@ -448,25 +455,25 @@ export function BatchSubmission() {
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Farm Location <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g., Green Valley Farms, Punjab" value={formData.location} onChange={(e) => handleInputChange('location', e.target.value)} 
-                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="notranslate text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-2">Pincode/Zip <span className="text-rose-500">*</span></label>
                                         <input type="text" required placeholder="e.g. 110001" value={formData.pincode} onChange={(e) => handleInputChange('pincode', e.target.value)} 
-                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            className="notranslate text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Harvest Date <span className="text-rose-500">*</span></label>
-                                    <input type="string" required placeholder = "e.g. 01/01/1970"value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
-                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                    <input type="date" required value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
+                                            className="notranslate text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                 </div>
                                 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Quantity <span className="text-rose-500">*</span></label>
                                     <div className="flex gap-3">
                                         <input type="number" required placeholder="e.g. 5000" value={formData.quantity} onChange={(e) => handleInputChange('quantity', e.target.value)} 
-                                            className="text-slate-700 flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                            className="notranslate text-slate-700 flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
                                         <select value={formData.unit} onChange={(e) => handleInputChange('unit', e.target.value)} 
                                             className="text-slate-700 w-32 px-4 py-2.5 border border-slate-300 rounded-lg bg-slate-50 font-medium">
                                             {units.map(u => <option key={u} value={u}>{u}</option>)}
@@ -483,7 +490,7 @@ export function BatchSubmission() {
                         value="Regular"
                         checked={formData.passportType === 'Regular'}
                         onChange={(e) => handleInputChange('passportType', e.target.value)}
-                        className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" 
+                        className="notranslate w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" 
                     />
                     <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">Regular</span>
                 </label>
@@ -513,7 +520,7 @@ export function BatchSubmission() {
                                     `}>
                                         <input 
                                             type="checkbox" 
-                                            className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                                            className="notranslate w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                                             checked={(formData.tests || []).includes(test)}
                                             onChange={() => toggleTest(test)}
                                         />
@@ -555,7 +562,7 @@ export function BatchSubmission() {
                             <button type="button" onClick={() => handleSetView('list')} className="px-6 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                                 Cancel
                             </button>
-                            <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50 flex items-center gap-2">
+                            <button type="submit" disabled={isSubmitting} className="notranslate px-8 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-md disabled:opacity-50 flex items-center gap-2">
                                 {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                                 {isSubmitting ? 'Processing...' : 'Submit Batch'}
                             </button>
