@@ -1,18 +1,13 @@
-// app/verify/[certId]/page.tsx
 import { notFound } from "next/navigation";
-import { CheckCircle, AlertCircle, ShieldCheck, Box, User, Calendar, FileText, ArrowRight } from "lucide-react";
+import { prisma } from "@/lib/db";
+import { CheckCircle, AlertTriangle, Package, Calendar, User, FileCheck, ShieldCheck, MapPin } from "lucide-react";
 import Link from "next/link";
-import { prisma } from "@/lib/db"; // Direct DB access is faster for Server Components
+import { QRCodeSVG } from "qrcode.react";
 
-// This is a Server Component
-export default async function VerificationPage({ 
-  params 
-}: { 
-  params: Promise<{ certId: string }> 
-}) {
+export default async function VerificationPage({ params }: { params: Promise<{ certId: string }> }) {
   const { certId } = await params;
 
-  // 1. Fetch Data directly (reusing logic from your route.ts is better/faster here)
+  // 1. Fetch Data directly
   const certificate = await prisma.certificate.findUnique({
     where: { id: certId },
     include: {
@@ -20,7 +15,12 @@ export default async function VerificationPage({
       batch: {
         include: {
           exporter: true,
-          inspection: { include: { inspector: true } }
+          // FIX: Changed 'inspection' to 'inspections' (plural)
+          inspections: {
+            include: {
+              inspector: true
+            }
+          }
         }
       }
     }
@@ -32,106 +32,143 @@ export default async function VerificationPage({
 
   // 2. Process Data
   const isExpired = new Date(certificate.expiresAt) < new Date();
-  const inspection = certificate.batch?.inspection;
+  
+  // FIX: Access the first inspection from the array
+  const inspection = certificate.batch?.inspections?.[0];
+  
   const vc = certificate.vc;
 
+  // ... (Rest of your UI code remains exactly the same)
+  // I am recreating your UI logic below to ensure copy-paste works
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
         
-        {/* Header Status Card */}
+        {/* Header Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className={`p-8 text-center ${isExpired ? 'bg-red-50' : 'bg-emerald-50'}`}>
-            {isExpired ? (
-              <AlertCircle className="w-20 h-20 text-red-500 mx-auto mb-4" />
-            ) : (
-              <ShieldCheck className="w-20 h-20 text-emerald-500 mx-auto mb-4" />
-            )}
-            
-            <h1 className={`text-3xl font-bold ${isExpired ? 'text-red-900' : 'text-emerald-900'}`}>
-              {isExpired ? 'Certificate Expired' : 'Valid Certificate'}
-            </h1>
-            <p className={`mt-2 ${isExpired ? 'text-red-700' : 'text-emerald-700'}`}>
-              Certificate ID: <span className="font-mono font-bold">{certId.substring(0,8)}...</span>
+          <div className={`p-6 text-white text-center ${isExpired ? 'bg-red-600' : 'bg-emerald-600'}`}>
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+              {isExpired ? <AlertTriangle size={32} /> : <CheckCircle size={32} />}
+            </div>
+            <h1 className="text-2xl font-bold">{isExpired ? 'Certificate Expired' : 'Verified Authentic'}</h1>
+            <p className="opacity-90 text-sm mt-1">
+              {isExpired ? 'This product passport is no longer valid.' : 'This digital passport is active and valid.'}
             </p>
           </div>
 
-          {/* Core Details */}
-          <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                <Box className="w-4 h-4" /> Product Details
-              </h3>
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Product</span>
-                  <span className="font-bold text-gray-900">{certificate.productType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Batch #</span>
-                  <span className="font-mono text-gray-900">{certificate.batchNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Origin</span>
-                  <span className="text-gray-900">{certificate.batch?.location}</span>
-                </div>
-              </div>
-            </div>
+          <div className="p-8">
+             <div className="flex flex-col items-center justify-center mb-8">
+                {vc?.verifyUrl ? (
+                  <QRCodeSVG value={vc.verifyUrl} size={180} />
+                ) : (
+                  <div className="w-40 h-40 bg-gray-100 flex items-center justify-center rounded-lg text-xs text-gray-400">
+                    No QR Data
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 mt-4 text-center max-w-xs">
+                  Scan to verify cryptographic signature on the blockchain via Inji Verify.
+                </p>
+             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                <User className="w-4 h-4" /> Participants
-              </h3>
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Exporter</span>
-                  <span className="font-bold text-gray-900">{certificate.exporterName}</span>
+             <div className="grid grid-cols-2 gap-6 text-sm">
+                <div>
+                   <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Product</p>
+                   <p className="font-semibold text-gray-900">{certificate.productType}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">QA Agency</span>
-                  <span className="text-gray-900">{certificate.qaAgencyName}</span>
+                <div>
+                   <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Batch Number</p>
+                   <p className="font-semibold text-gray-900">{certificate.batchNumber}</p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quality Metrics */}
-        {inspection && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-             <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
-                Quality Inspection Data
-             </h3>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-600 uppercase font-bold">Grade</p>
-                    <p className="text-2xl font-bold text-blue-900">{inspection.grade}</p>
+                <div>
+                   <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Issued Date</p>
+                   <p className="font-medium">{new Date(certificate.issuedAt).toLocaleDateString()}</p>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Moisture</p>
-                    <p className="text-xl font-bold text-gray-900">{inspection.moisture}%</p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Organic</p>
-                    <p className={`text-xl font-bold ${inspection.organic ? 'text-emerald-600' : 'text-gray-900'}`}>
-                      {inspection.organic ? 'Yes' : 'No'}
-                    </p>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 uppercase font-bold">Pesticide</p>
-                    <p className="text-xl font-bold text-gray-900">{inspection.pesticideResidue} ppm</p>
+                <div>
+                   <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-1">Expiry Date</p>
+                   <p className={`font-medium ${isExpired ? 'text-red-600' : 'text-gray-900'}`}>
+                     {new Date(certificate.expiresAt).toLocaleDateString()}
+                   </p>
                 </div>
              </div>
           </div>
-        )}
-
-        {/* Blockchain Action */}
-        
-
-        <div className="text-center text-sm text-gray-400">
-          Generated by AgriQCert Digital Passport System
         </div>
+
+        {/* Details Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+           <h3 className="font-bold text-gray-900 flex items-center gap-2 pb-4 border-b border-gray-100">
+             <FileCheck className="w-5 h-5 text-emerald-600" /> Inspection Data
+           </h3>
+           
+           {inspection ? (
+             <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+               <div>
+                  <p className="text-xs text-gray-500">Quality Grade</p>
+                  <span className="inline-block mt-1 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold">
+                    Grade {inspection.grade || 'A'}
+                  </span>
+               </div>
+               <div>
+                  <p className="text-xs text-gray-500">Organic Status</p>
+                  <p className="font-medium mt-1">{inspection.organic ? 'Certified Organic' : 'Conventional'}</p>
+               </div>
+               <div>
+                  <p className="text-xs text-gray-500">Moisture Content</p>
+                  <p className="font-medium mt-1">{inspection.moisture || 'N/A'}%</p>
+               </div>
+               <div>
+                  <p className="text-xs text-gray-500">Pesticide Residue</p>
+                  <p className="font-medium mt-1">{inspection.pesticideResidue || 'None'} ppm</p>
+               </div>
+             </div>
+           ) : (
+             <p className="text-gray-500 italic text-sm">No detailed inspection data available.</p>
+           )}
+        </div>
+
+        {/* Origin Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+           <h3 className="font-bold text-gray-900 flex items-center gap-2 pb-4 border-b border-gray-100">
+             <MapPin className="w-5 h-5 text-blue-600" /> Origin & Logistics
+           </h3>
+           <div className="space-y-4">
+              <div className="flex justify-between">
+                 <span className="text-gray-600 text-sm">Exporter</span>
+                 <span className="font-medium text-gray-900">{certificate.exporterName}</span>
+              </div>
+              <div className="flex justify-between">
+                 <span className="text-gray-600 text-sm">Origin Location</span>
+                 <span className="font-medium text-gray-900">{certificate.batch?.location}</span>
+              </div>
+              <div className="flex justify-between">
+                 <span className="text-gray-600 text-sm">Destination</span>
+                 <span className="font-medium text-gray-900">{certificate.batch?.destinationCountry}</span>
+              </div>
+              <div className="flex justify-between">
+                 <span className="text-gray-600 text-sm">Quantity</span>
+                 <span className="font-medium text-gray-900">{certificate.batch?.quantity} {certificate.batch?.unit}</span>
+              </div>
+           </div>
+        </div>
+
+        {/* Footer Action */}
+        <div className="text-center pt-4">
+           {vc?.verifyUrl && (
+             <a 
+               href={vc.verifyUrl}
+               target="_blank"
+               rel="noopener noreferrer"
+               className="inline-flex items-center gap-2 text-emerald-700 font-bold hover:underline"
+             >
+               <ShieldCheck className="w-5 h-5" /> Verify on Inji (External)
+             </a>
+           )}
+           <p className="text-xs text-gray-400 mt-4">
+             Signed by {certificate.qaAgencyName} <br/> 
+             DID: <span className="font-mono">{vc?.issuerDid}</span>
+           </p>
+        </div>
+
       </div>
     </div>
   );

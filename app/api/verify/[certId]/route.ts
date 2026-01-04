@@ -1,4 +1,3 @@
-// app/api/verify/[certId]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
@@ -16,7 +15,8 @@ export async function GET(
         batch: {
           include: {
             exporter: true,
-            inspection: {
+            // FIX: Changed 'inspection' to 'inspections'
+            inspections: {
               include: {
                 inspector: true
               }
@@ -37,7 +37,10 @@ export async function GET(
     }
 
     const isExpired = new Date(certificate.expiresAt) < new Date();
-    const inspection = certificate.batch?.inspection;
+    
+    // FIX: Access the first inspection
+    const inspection = certificate.batch?.inspections?.[0];
+    
     const vc = certificate.vc;
 
     const response = {

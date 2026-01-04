@@ -1,9 +1,11 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db"; 
 import bcrypt from "bcryptjs"; 
 
-const handler = NextAuth({
+// Create a named constant for options
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -16,37 +18,30 @@ const handler = NextAuth({
           throw new Error("Missing email or password");
         }
 
-        // 1. Find user in DB
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        // 2. Check if user exists
         if (!user) {
           throw new Error("No user found with this email");
         }
 
-        // 3. Check password
-        // Note: If you stored plain text in your hackathon demo, verify directly.
-        // Otherwise, use bcrypt.compare()
         const isValid = await bcrypt.compare(credentials.password, user.password || "");
 
         if (!isValid) {
           throw new Error("Invalid password");
         }
 
-        // 4. Return user object (this gets passed to the jwt callback)
         return {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role, // We need to pass this to the session
+          role: user.role, 
         };
       }
     })
   ],
   callbacks: {
-    // 1. JWT Callback: Add the role to the token
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
@@ -54,7 +49,6 @@ const handler = NextAuth({
       }
       return token;
     },
-    // 2. Session Callback: Add the role to the session (accessible in frontend)
     async session({ session, token }) {
       if (session?.user) {
         session.user.role = token.role;
@@ -64,13 +58,13 @@ const handler = NextAuth({
     }
   },
   pages: {
-    signIn: '/login', // Point to your custom login page
+    signIn: '/login',
   },
   session: {
     strategy: "jwt",
   },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
 
-// IMPORTANT: This is the fix for the "No HTTP methods exported" error
+const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

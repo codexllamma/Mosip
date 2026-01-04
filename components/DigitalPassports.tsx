@@ -1,10 +1,11 @@
-// components/DigitalPassports.tsx (or wherever you keep this file)
 "use client";
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, ExternalLink, AlertCircle, Eye, X, Calendar, Package } from 'lucide-react';
+import { useSession } from 'next-auth/react'; // <--- FIXED: Using Hook for reliable role check
+import { CheckCircle, ExternalLink, AlertCircle, Eye, X, Calendar, Package, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Link from 'next/link';
+
 // Define the shape of data coming from the API
 interface PassportData {
   id: string;
@@ -36,13 +37,18 @@ interface PassportData {
 }
 
 export default function DigitalPassports() {
+  // 1. Get Session directly (Solves the "Button not showing" issue)
+  const { data: session } = useSession();
+  
   const [certificates, setCertificates] = useState<PassportData[]>([]);
   const [selectedCert, setSelectedCert] = useState<PassportData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Fetch Passports
     fetch('/api/passports')
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch data");
@@ -58,6 +64,39 @@ export default function DigitalPassports() {
         setLoading(false);
       });
   }, []);
+
+  // Revocation Handler
+  async function handleRevoke(certId: string, e: React.MouseEvent) {
+    e.stopPropagation(); // Stop click from opening the modal
+
+    if (!confirm("⚠️ PERMANENT ACTION REQUIRED\n\nAre you sure you want to revoke this passport? This will invalidate the credential and reject the batch.\n\nThis action cannot be undone.")) {
+      return;
+    }
+
+    setRevokingId(certId);
+
+    try {
+      const response = await fetch(`/api/passports/${certId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to revoke passport");
+      }
+
+      // Remove from UI on success
+      setCertificates(prev => prev.filter(c => c.id !== certId));
+      if (selectedCert?.id === certId) setShowModal(false);
+      alert("Passport revoked successfully.");
+
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setRevokingId(null);
+    }
+  }
 
   function formatDate(dateString: string) {
     if (!dateString) return 'N/A';
@@ -130,8 +169,25 @@ export default function DigitalPassports() {
           return (
             <div
               key={cert.id}
-              className="bg-white border-2 border-emerald-50 rounded-xl overflow-hidden hover:shadow-xl hover:border-emerald-200 transition-all duration-300 group"
+              className="bg-white border-2 border-emerald-50 rounded-xl overflow-hidden hover:shadow-xl hover:border-emerald-200 transition-all duration-300 group relative"
             >
+              {/* REVOCATION BUTTON: Only visible to QA_AGENCY */}
+              {/* FIXED: Uses session directly instead of fetch state */}
+              {session?.user?.role === 'QA_AGENCY' && (
+                <button
+                  onClick={(e) => handleRevoke(cert.id, e)}
+                  disabled={revokingId === cert.id}
+                  className="absolute top-3 right-3 z-30 p-2 bg-red-600 text-white rounded-lg transition-all shadow-md hover:bg-red-700 flex items-center justify-center border border-red-400"
+                  title="Revoke and Invalidate Passport"
+                >
+                  {revokingId === cert.id ? (
+                    <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+
               <div className="bg-linear-to-br from-emerald-600 to-emerald-800 p-6 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10 transform translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform">
                   <CheckCircle size={120} />
@@ -244,15 +300,13 @@ export default function DigitalPassports() {
                   </div>
                   
                   {selectedCert.verification_url && (
-                    
-                  <Link 
-                    href={`/verify/${selectedCert.id}`}
-                    target="_blank"
-                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline decoration-blue-200 underline-offset-4"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View Verification Page
-                  </Link>
+                    <Link 
+                        href={`/verify/${selectedCert.id}`}
+                        target="_blank"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline decoration-blue-200 underline-offset-4"
+                    >
+                        <ExternalLink className="w-4 h-4" /> View Verification Page
+                    </Link>
                   )}
                 </div>
               </div>
