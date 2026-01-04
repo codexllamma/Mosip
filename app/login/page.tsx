@@ -250,7 +250,7 @@ export default function LoginPage() {
           <CardContent className="p-8 space-y-6">
             
             {error && (
-              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
+              <Alert variant="destructive" className="text-red-500 animate-in fade-in slide-in-from-top-2 ">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
