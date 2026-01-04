@@ -1,11 +1,37 @@
 {
+  "version": 2,
   "headers": [
     {
       "source": "/vc.json",
       "headers": [
         {
           "key": "Content-Type",
-          "value": "application/ld+json"
+          "value": "application/ld+json; charset=utf-8"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/did.json",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
         },
         {
           "key": "Access-Control-Allow-Origin",
