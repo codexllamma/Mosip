@@ -20,7 +20,8 @@ interface FormData {
     pincode: string;
     harvestDate: string;
     destinationCountry: string;
-    tests: string[]; // [UPDATED] Added tests array
+    tests: string[];
+    passportType: string; // [UPDATED] Added tests array
 }
 
 interface DetailItemProps {
@@ -427,21 +428,15 @@ export function BatchSubmission() {
                             <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2">Product Details</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
-                                    <select required value={formData.cropType} onChange={(e) => setFormField('cropType', e.target.value)} 
-                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
-                                        <option value="" className="text-slate-700">Select crop type</option>
-                                        {cropTypes.map(crop => <option key={crop} value={crop}>{crop}</option>)}
-                                    </select>
-                                </div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Crop Type <span className="text-rose-500">*</span></label>
+                                        <input type="text" required placeholder="e.g. Basmati Rice" value={formData.cropType} onChange={(e) => handleInputChange('cropType', e.target.value)} 
+                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                    </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Destination Country <span className="text-rose-500">*</span></label>
-                                    <select required value={formData.destinationCountry} onChange={(e) => setFormField('destinationCountry', e.target.value)} 
-                                            className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-600 font-medium">
-                                        <option value="" className="text-slate-400">Select destination</option>
-                                        {countries.map(country => <option key={country} value={country}>{country}</option>)}
-                                    </select>
-                                </div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Destination Country <span className="text-rose-500">*</span></label>
+                                        <input type="text" required placeholder="e.g. Germany" value={formData.destinationCountry} onChange={(e) => handleInputChange('destinationCountry', e.target.value)} 
+                                            className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
+                                    </div>
                             </div>
                         </div>
 
@@ -463,9 +458,10 @@ export function BatchSubmission() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Harvest Date <span className="text-rose-500">*</span></label>
-                                    <input type="date" required value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
+                                    <input type="string" required placeholder = "e.g. 01/01/1970"value={formData.harvestDate} onChange={(e) => handleInputChange('harvestDate', e.target.value)} 
                                             className="text-slate-700 w-full px-4 py-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500" />
                                 </div>
+                                
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">Quantity <span className="text-rose-500">*</span></label>
                                     <div className="flex gap-3">
@@ -477,6 +473,26 @@ export function BatchSubmission() {
                                         </select>
                                     </div>
                                 </div>
+                                <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Type of Passport <span className="text-rose-500">*</span></label>
+            <div className="flex gap-6 mt-3">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                    <input 
+                        type="radio" 
+                        name="passportType" 
+                        value="Regular"
+                        checked={formData.passportType === 'Regular'}
+                        onChange={(e) => handleInputChange('passportType', e.target.value)}
+                        className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" 
+                    />
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">Regular</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                    <input type="radio" name="passportType" value="Golden" checked={formData.passportType === 'Golden'} onChange={(e) => handleInputChange('passportType', e.target.value)} className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" />
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">Golden</span>
+                </label>
+            </div>
+        </div>
                             </div>
                         </div>
 
