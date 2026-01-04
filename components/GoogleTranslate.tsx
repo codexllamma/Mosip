@@ -26,6 +26,7 @@ const LANGUAGES = [
   { label: "Spanish (Español)", code: "es" },
   { label: "French (Français)", code: "fr" },
   { label: "German (Deutsch)", code: "de" },
+  { label: "Tamil (தமிழ்)", code: "ta"},
 ];
 
 const GoogleTranslate = () => {
