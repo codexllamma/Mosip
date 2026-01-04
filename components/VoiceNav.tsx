@@ -126,14 +126,8 @@ export default function VoiceNav() {
             setShowAuthError(true);
             setTimeout(() => setShowAuthError(false), 3000);
           }
-        } else if (
-          text.includes("passports") ||
-          text.includes("passport") ||
-          text.includes("digital") ||
-          text.includes("पासपोर्ट") ||
-          text.includes("pasaportes")
-        )
-          navigate("digital-passports");
+        } else if ( text.includes("passports") || text.includes("passport") || text.includes("digital") || text.includes("पासपोर्ट") || text.includes("pasaportes") ) navigate("digital-passports");
+        else if (text.includes("inji") || text.includes("verify")) navigate("inji-verify");
 
         // --- Form Autofill ---
         if (activeView === "form") {
