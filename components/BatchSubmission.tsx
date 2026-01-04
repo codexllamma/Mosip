@@ -67,9 +67,9 @@ export function BatchSubmission() {
     const countries = ['United Arab Emirates', 'United States', 'United Kingdom', 'Saudi Arabia', 'Singapore', 'Germany', 'France', 'Japan'];
     
     // [NEW] Available Tests List
-    const availableTests = ['Moisture', 'Pesticide', 'Organic', 'Heavy Metals', 'Grade A', 'Aflatoxin'];
+    const availableTests = ['Moisture Content', 'Pesticide Residue', 'Organic Certified', 'Heavy Metals', 'Grade A Quality', 'Aflatoxin Level'];
 
-    // --- EFFECT: Listen for Voice Navigation commands ---
+    // --- EFFECT: Listen for Voice Navigation commands ---3
     useEffect(() => {
         if (currentView === 'form') {
             setView('form');
@@ -185,7 +185,7 @@ export function BatchSubmission() {
             const submissionData = {
                 ...formData,
                 quantity: parseFloat(formData.quantity),
-                pincode: parseInt(formData.pincode, 10),
+
                 // Ensure tests are sent from formData
                 tests: formData.tests || [] 
             };
