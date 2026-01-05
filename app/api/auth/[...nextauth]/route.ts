@@ -1,11 +1,11 @@
 // app/api/auth/[...nextauth]/route.ts
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth"; // Import NextAuthOptions
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db"; 
 import bcrypt from "bcryptjs"; 
 
-// Create a named constant for options
-export const authOptions = {
+// explicit type annotation fixes "implicit any" and "strategy" errors
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -32,6 +32,7 @@ export const authOptions = {
           throw new Error("Invalid password");
         }
 
+        // Return an object that matches the augmented User type
         return {
           id: user.id,
           name: user.name,
@@ -42,6 +43,7 @@ export const authOptions = {
     })
   ],
   callbacks: {
+    // Types are now inferred correctly from NextAuthOptions
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;

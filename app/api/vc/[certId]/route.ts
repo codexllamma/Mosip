@@ -14,7 +14,7 @@ export async function GET(
       batch: {
         include: {
           exporter: true,
-          inspection: {
+          inspections: {
             include: { inspector: true }
           }
         }
@@ -26,7 +26,7 @@ export async function GET(
     return new NextResponse("VC not found", { status: 404 });
   }
 
-  const inspection = certificate.batch?.inspection;
+  const inspection = certificate.batch?.inspections[0];
 
   const vc = buildVerifiableCredential({
     certificateId: certificate.id,

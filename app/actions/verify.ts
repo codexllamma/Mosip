@@ -18,7 +18,7 @@ export async function verifyQrCode(scannedUrl: string) {
         certificate: {
           include: {
             batch: {
-              include: { exporter: true, inspection: true }
+              include: { exporter: true, inspections: true }
             }
           }
         }
@@ -42,9 +42,9 @@ export async function verifyQrCode(scannedUrl: string) {
         exporter: cert.exporterName,
         issuer: cert.qaAgencyName,
         verifyUrl: credential.verifyUrl,
-        quality: cert.batch?.inspection ? {
-          grade: cert.batch.inspection.grade,
-          organic: cert.batch.inspection.organic
+        quality: cert.batch?.inspections ? {
+          grade: cert.batch.inspections[0].grade,
+          organic: cert.batch.inspections[0].organic
         } : null
       }
     };
