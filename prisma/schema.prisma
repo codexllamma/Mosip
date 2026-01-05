@@ -95,6 +95,7 @@ model Inspection {
   batchId          String
   inspectorId      String
   status           String   @default("PENDING")
+  name             String?
   batch            Batch    @relation(fields: [batchId], references: [id])
   inspector        User     @relation(fields: [inspectorId], references: [id])
 }

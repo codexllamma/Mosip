@@ -274,7 +274,7 @@ export function InspectionRequests() {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Batch ID</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">INSPECTION ID</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Exporter</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Crop</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Qty</th>

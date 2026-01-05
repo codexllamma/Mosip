@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     // 3. Transform data
     const formattedData = assignments.map((inspection: any) => ({
       id: inspection.batch.id, 
-      batch_number: inspection.batch.batchNumber,
+      batch_number: inspection.name,
       exporter_name: inspection.batch.exporter?.organization || inspection.batch.exporter?.name || "Unknown Exporter",
       crop_type: inspection.batch.cropType,
       quantity_kg: inspection.batch.quantity, 
