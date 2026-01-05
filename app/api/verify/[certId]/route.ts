@@ -46,7 +46,7 @@ export async function GET(
     const response = {
       status: isExpired ? "EXPIRED" : "VALID",
       
-      notice: "⚠️ This endpoint provides METADATA ONLY. For cryptographic verification, use Inji Verify.",
+      notice: "This endpoint provides METADATA ONLY. For cryptographic verification, use Inji Verify.",
       verification_required: true,
       
       certificate_id: certificate.id,
@@ -125,9 +125,9 @@ export async function GET(
       },
       
       warnings: [
-        isExpired && "⚠️ Certificate has EXPIRED",
-        !vc?.issuerDid && "⚠️ Issuer DID not found",
-        !vc?.verifyUrl && "⚠️ Verification URL not available"
+        isExpired && " Certificate has EXPIRED",
+        !vc?.issuerDid && " Issuer DID not found",
+        !vc?.verifyUrl && "Verification URL not available"
       ].filter(Boolean)
     };
 
