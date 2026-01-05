@@ -439,7 +439,7 @@ export function BatchSubmission() {
                                             onChange={() => handleInputChange('golden', false)}
                                             className="w-4 h-4 text-emerald-600"
                                         />
-                                        <span className="text-sm font-medium">Regular</span>
+                                        <span className="text-slate-700 font-medium">Regular</span>
                                         </label>
 
                                         <label className="flex items-center gap-2 cursor-pointer">
@@ -450,7 +450,7 @@ export function BatchSubmission() {
                                             onChange={() => handleInputChange('golden', true)}
                                             className="w-4 h-4 text-emerald-600"
                                         />
-                                        <span className="text-sm font-medium">Golden</span>
+                                        <span className="text-slate-700 font-medium">Golden</span>
                                         </label>
                                     </div>
 
