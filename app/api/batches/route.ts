@@ -1,4 +1,3 @@
-// app/api/batches/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db"; 
 import { matchExporterUsingCity, MatchOptions } from "@/lib/matchingService";
@@ -113,8 +112,12 @@ export async function POST(req: NextRequest) {
                     });
 
                     if (qaProfile?.user) {
+                        // GENERATE INSPECTION NAME (Matches Batch logic)
+                        const inspectionName = `INS-${Date.now().toString().slice(-6)}`;
+
                         await prisma.inspection.create({
                             data: {
+                                name: inspectionName, // Added generated name here
                                 batchId: newBatch.id,
                                 inspectorId: qaProfile.user.id,
                                 status: 'PENDING',
@@ -134,10 +137,9 @@ export async function POST(req: NextRequest) {
                 }));
 
                 // B. FIXED: Fetch the valid User ID for the primary inspector
-                // 'agency.qa_profile_id' is a Profile UUID, we need the User UUID.
                 const primaryProfile = await prisma.qAProfile.findUnique({
                     where: { id: agenciesToAssign[0].qa_profile_id },
-                    select: { userId: true } // Only fetch the User ID
+                    select: { userId: true } 
                 });
 
                 if (primaryProfile && primaryProfile.userId) {
@@ -145,7 +147,6 @@ export async function POST(req: NextRequest) {
                         where: { id: newBatch.id },
                         data: {
                             status: 'PENDING_APPROVAL',
-                            // Now using the correct User ID
                             assignedInspectorId: primaryProfile.userId 
                         }
                     });
