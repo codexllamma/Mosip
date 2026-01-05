@@ -1,72 +1,64 @@
-// app/api/inspections/pending/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+// Force dynamic to prevent caching issues with searchParams
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Get the logged-in user's email from query params
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required for authorization" }, { status: 400 });
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    // 2. Find the User ID for this email
-    const user = await prisma.user.findUnique({
+    // 1. Find the Inspector by Email
+    const inspector = await prisma.user.findFirst({
       where: { email: email }
     });
 
-    if (!user) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!inspector) {
+      return NextResponse.json([]); 
     }
 
-    // 3. Fetch Batches via the Inspection table
-    // We want inspections assigned to THIS user that are still PENDING
-    const myInspections = await prisma.inspection.findMany({
+    // 2. Find PENDING inspections assigned to this inspector
+    const assignments = await prisma.inspection.findMany({
       where: {
-        inspectorId: user.id,
-        status: 'PENDING'
+        inspectorId: inspector.id,
+        status: { not: 'COMPLETED' }
       },
       include: {
         batch: {
-          include: { exporter: true }
+          include: {
+            exporter: true
+          }
         }
       },
+      // FIX: Sort by the BATCH's creation date, since Inspection doesn't have 'createdAt'
       orderBy: {
-        inspectedAt: 'desc' // or createdAt
+        batch: {
+          createdAt: 'desc'
+        }
       }
     });
 
-    // 4. Map Prisma Data to Frontend Interface
-    const formattedBatches = myInspections.map(inspection => {
-      const batch = inspection.batch;
-      return {
-        id: batch.id,                    // The Batch ID
-        inspection_id: inspection.id,    // [CRITICAL] The specific Inspection ID to update later
-        batch_number: batch.batchNumber,
-        exporter_name: batch.exporter.organization || batch.exporter.name,
-        crop_type: batch.cropType,
-        quantity_kg: batch.quantity,
-        location: batch.location,
-        destination_country: batch.destinationCountry,
-        harvest_date: batch.harvestDate,
-        submitted_at: batch.updatedAt,  
-        status: batch.status.toLowerCase(),
-        variety: batch.variety,
-        unit: batch.unit,
-        
-        lab_reports: [],
-        farm_photos: []
-      };
-    });
+    // 3. Transform data
+    const formattedData = assignments.map((inspection: any) => ({
+      id: inspection.batch.id, 
+      batch_number: inspection.batch.batchNumber,
+      exporter_name: inspection.batch.exporter?.organization || inspection.batch.exporter?.name || "Unknown Exporter",
+      crop_type: inspection.batch.cropType,
+      quantity_kg: inspection.batch.quantity, 
+      location: inspection.batch.location,
+      submitted_at: inspection.batch.createdAt,
+      status: inspection.status 
+    }));
 
-    return NextResponse.json(formattedBatches);
+    return NextResponse.json(formattedData);
 
   } catch (error: any) {
-    console.error("Pending Inspections Error:", error);
+    console.error("[PENDING_INSPECTIONS_API] Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

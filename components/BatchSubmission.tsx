@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { 
-    Upload, X, FileText, Image as ImageIcon, 
-    Plus, Calendar, MapPin, ArrowRight, 
-    ArrowLeft, CheckCircle2, Package, Clock, ShieldCheck, Globe, Loader2,
-    FlaskConical
+    Upload, X, Image as ImageIcon, Plus, Calendar, MapPin, 
+    ArrowLeft, CheckCircle2, Package, Clock, ShieldCheck, 
+    FlaskConical, ChevronDown, ChevronUp, Loader2
 } from 'lucide-react';
 import { useRole } from '../contexts/RoleContext';
 import { useVoiceNav } from '@/contexts/VoiceContext'; 
-import { findBestMatchAction } from '@/app/actions/match-actions';
 import { translateToEnglish } from '@/app/api/actions/translate';
+import ConsensusTracker from '@/components/ConsensusTracker'; 
 
 // --- Types ---
 interface FormData {
@@ -22,7 +21,7 @@ interface FormData {
     harvestDate: string;
     destinationCountry: string;
     tests: string[];
-    passportType: string; // [UPDATED] Added tests array
+    golden:boolean;
 }
 
 interface DetailItemProps {
@@ -37,12 +36,14 @@ interface Batch {
     quantity: string;
     unit: string;
     date: string; 
-    status: 'SUBMITTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'CERTIFIED'; 
+    status: 'SUBMITTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'CERTIFIED' | 'WAITING_CONSENSUS'; 
     destination: string; 
     location: string;
     pincode: string;
-    labReports: string[]; // This will store test names
+    labReports: string[]; 
     farmPhotos: string[];
+    golden: true | false; 
+    inspectionsCompleted: number; 
 }
 
 // --- Component ---
@@ -56,21 +57,18 @@ export function BatchSubmission() {
     const [apiError, setApiError] = useState<string | null>(null);
 
     // VIEW STATE
-    const [view, setView] = useState<'list' | 'form' | 'success' | 'detail'>('list');
-    const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
+    const [view, setView] = useState<'list' | 'form' | 'success'>('list');
+    
+    // EXPANSION STATE
+    const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
 
-    // MATCHING STATE
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // CONSTANTS
-    const cropTypes = ['Basmati Rice', 'Jasmine Rice', 'Wheat', 'Alphonso Mangoes', 'Turmeric', 'Black Pepper', 'Cardamom', 'Tea', 'Coffee'];
     const units = ['kg', 'tonnes', 'quintal', 'lbs', 'boxes'];
-    const countries = ['United Arab Emirates', 'United States', 'United Kingdom', 'Saudi Arabia', 'Singapore', 'Germany', 'France', 'Japan'];
-    
-    // [NEW] Available Tests List
     const availableTests = ['Moisture Content', 'Pesticide Residue', 'Organic Certified', 'Heavy Metals', 'Grade A Quality', 'Aflatoxin Level'];
 
-    // --- EFFECT: Listen for Voice Navigation commands ---3
+    // --- EFFECT: Listen for Voice Navigation commands ---
     useEffect(() => {
         if (currentView === 'form') {
             setView('form');
@@ -79,10 +77,19 @@ export function BatchSubmission() {
         }
     }, [currentView]);
 
-    const handleSetView = (newView: 'list' | 'form' | 'success' | 'detail') => {
+    const handleSetView = (newView: 'list' | 'form' | 'success') => {
         setView(newView);
         if (newView === 'form' || newView === 'list') {
             navigateTo(newView);
+        }
+    };
+
+    // Toggle Expansion
+    const toggleBatchExpand = (id: string) => {
+        if (expandedBatchId === id) {
+            setExpandedBatchId(null); 
+        } else {
+            setExpandedBatchId(id); 
         }
     };
 
@@ -115,7 +122,10 @@ export function BatchSubmission() {
                     location: b.location,
                     pincode: b.pinCode.toString(),
                     labReports: b.tests || [], 
-                    farmPhotos: [], 
+                    farmPhotos: [],
+                    // Map new fields
+                    golden: b.golden || false, 
+                    inspectionsCompleted: b.inspections ? b.inspections.filter((i:any) => i.status === 'COMPLETED').length : 0
                 }));
                 setBatches(mappedBatches);
             } catch (error) {
@@ -133,13 +143,11 @@ export function BatchSubmission() {
         setFormField(field, value);
     };
 
-    // [NEW] Toggle Tests Checkbox
     const toggleTest = (test: string) => {
-        const currentTests = formData.tests || []; // Ensure array exists
+        const currentTests = formData.tests || [];
         const newTests = currentTests.includes(test)
             ? currentTests.filter((t : string)  => t !== test)
             : [...currentTests, test];
-        
         setFormField('tests', newTests);
     };
 
@@ -161,16 +169,12 @@ export function BatchSubmission() {
     const triggerLabUpload = () => labInputRef.current?.click();
     const triggerPhotoUpload = () => photoInputRef.current?.click();
 
-    const openBatchDetail = (batch: Batch) => {
-        setSelectedBatch(batch);
-        setView('detail');
-    };
-
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'APPROVED':
             case 'CERTIFIED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-            case 'PENDING_APPROVAL': return 'bg-amber-100 text-amber-800 border-amber-200';
+            case 'PENDING_APPROVAL': 
+            case 'WAITING_CONSENSUS': return 'bg-amber-100 text-amber-800 border-amber-200';
             case 'REJECTED': return 'bg-rose-100 text-rose-800 border-rose-200';
             default: return 'bg-slate-100 text-slate-800 border-slate-200';
         }
@@ -182,23 +186,19 @@ export function BatchSubmission() {
         setApiError(null);
 
        try {
-        // --- ADD TRANSLATION TUNNEL HERE ---
-        // We translate the user input fields before building submissionData
         const translatedCrop = await translateToEnglish(formData.cropType);
         const translatedLocation = await translateToEnglish(formData.location);
         const translatedCountry = await translateToEnglish(formData.destinationCountry);
 
-        // 1. Prepare Data with translated values
         const submissionData = {
             ...formData,
-            cropType: translatedCrop,       // Now in English
-            location: translatedLocation,   // Now in English
-            destinationCountry: translatedCountry, // Now in English
+            cropType: translatedCrop,       
+            location: translatedLocation,   
+            destinationCountry: translatedCountry, 
             quantity: parseFloat(formData.quantity),
             tests: formData.tests || [] 
         };
 
-        // 2. Submit to API 
         const response = await fetch('/api/batches', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -209,64 +209,18 @@ export function BatchSubmission() {
                 throw new Error(errorData.message || "Failed to create new batch.");
             }
             
-            const newBatchData = await response.json();
-            
-            // 3. Refresh List
-            const freshListResponse = await fetch('/api/batches');
-            const freshData = await freshListResponse.json();
-            
-            const newlyCreatedBatch: Batch = {
-                 id: newBatchData.id,
-                 cropType: newBatchData.cropType,
-                 quantity: newBatchData.quantity.toString(),
-                 unit: newBatchData.unit,
-                 date: new Date(newBatchData.harvestDate).toISOString().split('T')[0],
-                 status: newBatchData.status as Batch['status'],
-                 destination: newBatchData.destinationCountry,
-                 location: newBatchData.location,
-                 pincode: newBatchData.pinCode.toString(),
-                 labReports: newBatchData.tests || [],
-                 farmPhotos: [], 
-            };
-            
-            setBatches(freshData.map((b: any) => ({
-                id: b.id,
-                cropType: b.cropType,
-                quantity: b.quantity.toString(),
-                unit: b.unit,
-                date: new Date(b.harvestDate).toISOString().split('T')[0],
-                status: b.status as Batch['status'],
-                destination: b.destinationCountry,
-                location: b.location,
-                pincode: b.pinCode.toString(),
-                labReports: b.tests || [], 
-                farmPhotos: [], 
-            })));
-            
-            setSelectedBatch(newlyCreatedBatch);
-            setView('success');
-            
-            // Reset Fields
-            setFormField('cropType', '');
-            setFormField('quantity', '');
-            setFormField('unit', 'kg');
-            setFormField('location', '');
-            setFormField('pincode', '');
-            setFormField('harvestDate', '');
-            setFormField('destinationCountry', '');
-            setFormField('tests', []); // Reset tests
-            setLabReports([]);
-            setFarmPhotos([]);
+            // Hard reload to refresh state and fetch new data
+            window.location.reload(); 
 
         } catch (error: any) {
             setApiError(error.message || "Failed to submit batch.");
-        } finally {
             setIsSubmitting(false);
         }
     }
 
     // --- Render Logic ---
 
+    // 1. LIST VIEW (With Expandable Rows & Consensus Tracker)
     if (view === 'list') {
         return (
             <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -306,24 +260,66 @@ export function BatchSubmission() {
                                     <th className="px-6 py-4 font-semibold text-slate-700">Crop</th>
                                     <th className="px-6 py-4 font-semibold text-slate-700">Destination</th>
                                     <th className="px-6 py-4 font-semibold text-slate-700">Status</th>
+                                    <th className="px-6 py-4 font-semibold text-slate-700 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {batches.map((batch) => (
-                                    <tr 
-                                        key={batch.id} 
-                                        onClick={() => openBatchDetail(batch)}
-                                        className="hover:bg-emerald-50/50 cursor-pointer transition-colors group"
-                                    >
-                                        <td className="px-6 py-4 font-medium text-slate-900 group-hover:text-emerald-700">{batch.id}</td>
-                                        <td className="px-6 py-4 text-slate-600">{batch.cropType} <span className="text-slate-400 text-xs ml-1">({batch.quantity} {batch.unit})</span></td>
-                                        <td className="px-6 py-4 text-slate-600">{batch.destination}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(batch.status)}`}>
-                                                {batch.status.replace('_', ' ')}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                    <Fragment key={batch.id}>
+                                        {/* Main Row */}
+                                        <tr 
+                                            onClick={() => toggleBatchExpand(batch.id)}
+                                            className={`
+                                                cursor-pointer transition-colors group border-b border-slate-100
+                                                ${expandedBatchId === batch.id ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}
+                                            `}
+                                        >
+                                            <td className="px-6 py-4 font-medium text-slate-900 group-hover:text-emerald-700">{batch.id.substring(0,8)}...</td>
+                                            <td className="px-6 py-4 text-slate-600">{batch.cropType} <span className="text-slate-400 text-xs ml-1">({batch.quantity} {batch.unit})</span></td>
+                                            <td className="px-6 py-4 text-slate-600">{batch.destination}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(batch.status)}`}>
+                                                    {batch.status.replace(/_/g, ' ')}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right text-slate-400">
+                                                {expandedBatchId === batch.id ? <ChevronUp className="w-5 h-5 ml-auto" /> : <ChevronDown className="w-5 h-5 ml-auto" />}
+                                            </td>
+                                        </tr>
+
+                                        {/* Expanded Detail Row */}
+                                        {expandedBatchId === batch.id && (
+                                            <tr className="bg-slate-50/50 animate-in slide-in-from-top-2 duration-200">
+                                                <td colSpan={5} className="p-0">
+                                                    <div className="p-6 md:p-8 border-b border-slate-200 shadow-inner">
+                                                        
+                                                        <div className="flex flex-col lg:flex-row gap-8">
+                                                            
+                                                            {/* LEFT: Details */}
+                                                            <div className="flex-1 space-y-6">
+                                                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4">Batch Details</h3>
+                                                                <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                                                                    <DetailItem icon={<Calendar className="w-4 h-4" />} label="Harvest Date" value={batch.date} />
+                                                                    <DetailItem icon={<MapPin className="w-4 h-4" />} label="Origin" value={batch.location} />
+                                                                    <DetailItem icon={<ShieldCheck className="w-4 h-4" />} label="Pincode" value={batch.pincode} />
+                                                                    <DetailItem icon={<FlaskConical className="w-4 h-4" />} label="Req Tests" value={batch.labReports.join(', ') || 'Standard'} />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* RIGHT: Consensus Tracker */}
+                                                            <div className="flex-1 lg:max-w-md border-l border-slate-200 pl-0 lg:pl-8 pt-6 lg:pt-0">
+                                                                <ConsensusTracker status={batch.status} 
+                                                                totalAgencies={3}     
+                                                                completedCount={batch.inspectionsCompleted}
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
                                 ))}
                             </tbody>
                         </table>
@@ -333,57 +329,8 @@ export function BatchSubmission() {
         );
     }
 
-    if (view === 'detail' && selectedBatch) {
-        return (
-            <div className="max-w-4xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-300">
-                <button onClick={() => handleSetView('list')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors">
-                    <ArrowLeft className="w-4 h-4" /> Back to My Batches
-                </button>
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <div>
-                            <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Batch Identity</span>
-                            <h2 className="text-2xl font-bold text-slate-900">{selectedBatch.id}</h2>
-                        </div>
-                        <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${getStatusColor(selectedBatch.status)}`}>
-                            {selectedBatch.status.replace('_', ' ')}
-                        </span>
-                    </div>
-                    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div className="space-y-6">
-                            <DetailItem icon={<Package className="w-4 h-4" />} label="Crop Type" value={selectedBatch.cropType} />
-                            <DetailItem icon={<Clock className="w-4 h-4" />} label="Quantity" value={`${selectedBatch.quantity} ${selectedBatch.unit}`} />
-                            <DetailItem icon={<Calendar className="w-4 h-4" />} label="Harvest Date" value={selectedBatch.date} />
-                        </div>
-                        <div className="space-y-6">
-                            <DetailItem icon={<MapPin className="w-4 h-4" />} label="Origin Location" value={selectedBatch.location} />
-                            <DetailItem icon={<ShieldCheck className="w-4 h-4" />} label="Pincode/Zip" value={selectedBatch.pincode} />
-                            <DetailItem icon={<Globe className="w-4 h-4" />} label="Target Market" value={selectedBatch.destination} />
-                        </div>
-                        <div className="space-y-6 md:col-span-1 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                            <h3 className="text-sm font-bold text-slate-700 mb-2 border-b pb-1 flex items-center gap-2">
-                                <FlaskConical className="w-4 h-4" /> Required Tests
-                            </h3>
-                            {selectedBatch.labReports.length > 0 ? (
-                                <ul className="space-y-2 text-sm">
-                                    {selectedBatch.labReports.map((testName, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-slate-600">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> 
-                                            {testName} 
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-xs text-slate-400 italic">No specific tests requested.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (view === 'success' && selectedBatch) {
+    // 2. SUCCESS VIEW
+    if (view === 'success') {
         return (
             <div className="max-w-2xl mx-auto pt-8 animate-in zoom-in-95 duration-300">
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
@@ -392,15 +339,12 @@ export function BatchSubmission() {
                             <CheckCircle2 className="w-10 h-10 text-white" />
                         </div>
                         <h2 className="text-3xl font-bold">Batch Submitted!</h2>
-                        <p className="text-emerald-100 mt-2">Batch <strong>{selectedBatch.id}</strong> is now queued for matching.</p>
+                        <p className="text-emerald-100 mt-2">Your batch is now queued for matching.</p>
                     </div>
-                    <div className="p-8 space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                            <DetailItem icon={<Package className="w-4 h-4" />} label="Crop Type" value={selectedBatch.cropType} />
-                            <DetailItem icon={<Clock className="w-4 h-4" />} label="Quantity" value={`${selectedBatch.quantity} ${selectedBatch.unit}`} />
-                        </div>
+                    <div className="p-8 space-y-6 text-center">
+                        <p className="text-slate-600">The inspection process will begin shortly. You can track progress in your dashboard.</p>
                         <button 
-                            onClick={() => handleSetView('list')}
+                            onClick={() => window.location.reload()}
                             className="w-full bg-slate-900 hover:bg-black text-white py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                         >
                             <ArrowLeft className="w-4 h-4" />
@@ -412,6 +356,7 @@ export function BatchSubmission() {
         );
     }
 
+    // 3. FORM VIEW (Complete)
     if (view === 'form') {
         return (
             <div className="max-w-4xl mx-auto animate-in slide-in-from-right-4 duration-300">
@@ -481,29 +426,39 @@ export function BatchSubmission() {
                                     </div>
                                 </div>
                                 <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Type of Passport <span className="text-rose-500">*</span></label>
-            <div className="flex gap-6 mt-3">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                    <input 
-                        type="radio" 
-                        name="passportType" 
-                        value="Regular"
-                        checked={formData.passportType === 'Regular'}
-                        onChange={(e) => handleInputChange('passportType', e.target.value)}
-                        className="notranslate w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" 
-                    />
-                    <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">Regular</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                    <input type="radio" name="passportType" value="Golden" checked={formData.passportType === 'Golden'} onChange={(e) => handleInputChange('passportType', e.target.value)} className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500" />
-                    <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-600 transition-colors">Golden</span>
-                </label>
-            </div>
-        </div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                        Type of Passport <span className="text-rose-500">*</span>
+                                    </label>
+
+                                    <div className="flex gap-6 mt-3">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="passport"
+                                            checked={!formData.golden}
+                                            onChange={() => handleInputChange('golden', false)}
+                                            className="w-4 h-4 text-emerald-600"
+                                        />
+                                        <span className="text-sm font-medium">Regular</span>
+                                        </label>
+
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="passport"
+                                            checked={formData.golden}
+                                            onChange={() => handleInputChange('golden', true)}
+                                            className="w-4 h-4 text-emerald-600"
+                                        />
+                                        <span className="text-sm font-medium">Golden</span>
+                                        </label>
+                                    </div>
+
+                                </div>
                             </div>
                         </div>
 
-                        {/* 3. [NEW] Required Tests */}
+                        {/* 3. Required Tests */}
                         <div className="space-y-6">
                             <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
                                 <FlaskConical className="w-5 h-5 text-emerald-600" /> Required Inspections
@@ -540,7 +495,7 @@ export function BatchSubmission() {
                                         <Upload className="w-6 h-6 text-slate-400 mx-auto mb-2" />
                                         <p className="text-sm font-medium text-slate-700">Upload existing reports</p>
                                     </div>
-                                    {/* File List (Simple) */}
+                                    {/* File List */}
                                     {labReports.map((file, i) => (
                                         <div key={i} className="flex justify-between text-xs mt-2 bg-slate-100 p-2 rounded">
                                             <span>{file.name}</span>
@@ -582,7 +537,7 @@ function DetailItem({ icon, label, value }: DetailItemProps) {
             <div className="mt-1 text-emerald-600">{icon}</div> 
             <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-                <p className="text-slate-700 font-semibold">{value || 'N/A'}</p>
+                <p className="text-slate-700 font-semibold text-sm">{value || 'N/A'}</p>
             </div>
         </div>
     );

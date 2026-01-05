@@ -12,7 +12,7 @@ export async function GET() {
         batch: {
           include: {
             exporter: true,
-            inspections: true // Match plural name in schema.prisma
+            inspections: true
           }
         }
       },
@@ -23,7 +23,6 @@ export async function GET() {
       // 1. Safe parsing of vcJson
       let vcData: any = c.vc?.vcJson || {};
 
-      // Handle JSON stored as string
       if (typeof vcData === 'string') {
         try {
           vcData = JSON.parse(vcData);
@@ -37,7 +36,6 @@ export async function GET() {
       const subject = vcData.credentialSubject || {};
       const quality = subject.quality || {};
       
-      // Since Batch has "inspections" (array), we take the first one
       const inspection = c.batch?.inspections?.[0];
 
       return {
@@ -45,6 +43,8 @@ export async function GET() {
         batch_number: c.batchNumber,
         crop_type: c.productType,
         exporter_name: c.exporterName,
+        // ADDED: Explicitly return the agency name at root level for the frontend
+        qa_agency_name: c.qaAgencyName, 
         issued_at: c.issuedAt,
         expires_at: c.expiresAt,
         verification_url: c.vc?.verifyUrl || "",
@@ -58,7 +58,6 @@ export async function GET() {
             batchNumber: c.batchNumber,
             productType: c.productType,
             exporterName: c.exporterName,
-            // Prioritize real inspection data, then VC data, then defaults
             quality: inspection ? {
               moisture: inspection.moisture,
               pesticide: inspection.pesticideResidue,

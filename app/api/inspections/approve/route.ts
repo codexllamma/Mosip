@@ -1,11 +1,10 @@
 // app/api/inspections/approve/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { injiCertify } from "@/lib/inji-certify";
 import QRCode from "qrcode";
 import crypto from "crypto";
 
-// Helper: Calculate Majority Vote (for Strings like Grade/Organic)
+// Helper: Calculate Majority Vote (for Strings like Grade)
 function getMajority(arr: any[]) {
     if (arr.length === 0) return null;
     return arr.sort((a,b) =>
@@ -17,30 +16,45 @@ function getMajority(arr: any[]) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    // Note: 'inspectorEmail' should be passed from frontend Auth context
+    console.log("[INSPECTION_API] Received Approval Request:", JSON.stringify(body, null, 2));
+
     const { batchId, moisture, pesticide, organic, grade, notes, inspectorEmail } = body;
 
-    // 1. Identify the Inspector (Security Check)
-    const inspector = await prisma.user.findFirst({ 
-        where: { email: inspectorEmail } // In prod, use session/token
+    if (!inspectorEmail || !batchId) {
+        console.error("[INSPECTION_API] Error: Missing inspectorEmail or batchId.");
+        return NextResponse.json({ error: "Missing inspectorEmail or batchId" }, { status: 400 });
+    }
+
+    // 1. Identify the Inspector (Strict Security Check)
+    console.log(`[INSPECTION_API] Looking up Inspector User by email: ${inspectorEmail}`);
+    const activeInspector = await prisma.user.findFirst({ 
+        where: { email: inspectorEmail } 
     });
-    
-    // Fallback for dev/mock if email not passed
-    const activeInspector = inspector || await prisma.user.findFirst({ where: { role: "QA_AGENCY" } });
 
-    if (!activeInspector) return NextResponse.json({ error: "Inspector not found" }, { status: 404 });
+    if (!activeInspector) {
+        console.error(`[INSPECTION_API] User not found for email: ${inspectorEmail}`);
+        return NextResponse.json({ error: "Inspector user not found" }, { status: 404 });
+    }
+    console.log(`[INSPECTION_API] Inspector Identified: ${activeInspector.name} (ID: ${activeInspector.id})`);
 
-    // 2. Find the SPECIFIC Inspection record for this Batch + Inspector
+    // 2. Find the SPECIFIC Inspection assignment for this Inspector + Batch
+    console.log(`[INSPECTION_API] Verifying assignment for Batch ${batchId}...`);
     const myInspection = await prisma.inspection.findFirst({
         where: { 
             batchId: batchId,
-            inspectorId: activeInspector.id 
+            inspectorId: activeInspector.id,
+            status: { not: 'COMPLETED' } // Optional: Prevent double-voting
         }
     });
 
-    if (!myInspection) return NextResponse.json({ error: "No assignment found for this inspector" }, { status: 404 });
+    if (!myInspection) {
+        console.error(`[INSPECTION_API] No PENDING assignment found for Inspector ${activeInspector.id} on Batch ${batchId}.`);
+        return NextResponse.json({ error: "No pending inspection found for this inspector on this batch." }, { status: 404 });
+    }
+    console.log(`[INSPECTION_API] Found valid assignment: Inspection ID ${myInspection.id}`);
 
     // 3. Update THIS Inspection Record
+    console.log("[INSPECTION_API] Updating Inspection Record...");
     await prisma.inspection.update({
         where: { id: myInspection.id },
         data: {
@@ -53,19 +67,20 @@ export async function POST(req: NextRequest) {
             inspectedAt: new Date()
         }
     });
+    console.log("[INSPECTION_API] Inspection marked as COMPLETED.");
 
-    // 4. CHECK CONSENSUS: Are there other pending inspections for this batch?
+    // 4. CHECK CONSENSUS: Count remaining pending inspections
     const allInspections = await prisma.inspection.findMany({
         where: { batchId: batchId }
     });
 
     const pendingCount = allInspections.filter(i => i.status !== 'COMPLETED').length;
+    console.log(`[INSPECTION_API] Consensus Status: ${pendingCount} inspections remaining.`);
 
     if (pendingCount > 0) {
-        // Not everyone has voted yet.
         return NextResponse.json({ 
             success: true,
-            message: "Inspection recorded. Waiting for other agencies to complete.",
+            message: "Inspection recorded. Waiting for other agencies.",
             status: "WAITING_CONSENSUS",
             remaining: pendingCount 
         }, { status: 200 });
@@ -74,8 +89,8 @@ export async function POST(req: NextRequest) {
     // =========================================================
     // 5. ALL INSPECTIONS COMPLETE -> GENERATE GOLDEN PASSPORT
     // =========================================================
-    console.log(`[GOLDEN BATCH] Aggregating results from ${allInspections.length} agencies...`);
-
+    console.log(`[GOLDEN BATCH] All ${allInspections.length} agencies have submitted. Aggregating results...`);
+    
     // A. Aggregate Data
     const validMoisture = allInspections.map(i => parseFloat(i.moisture || "0")).filter(n => !isNaN(n));
     const validPesticide = allInspections.map(i => parseFloat(i.pesticideResidue || "0")).filter(n => !isNaN(n));
@@ -83,16 +98,22 @@ export async function POST(req: NextRequest) {
     const avgMoisture = validMoisture.reduce((a,b) => a+b, 0) / (validMoisture.length || 1);
     const avgPesticide = validPesticide.reduce((a,b) => a+b, 0) / (validPesticide.length || 1);
     
-    // Strict Organic Rule: ALL must say it's organic, otherwise False
+    // Strict Organic Rule: ALL must say it's organic
     const finalOrganic = allInspections.every(i => i.organic === true);
+    // Majority Grade Rule
     const finalGrade = getMajority(allInspections.map(i => i.grade)) || grade;
+
+    console.log(`[GOLDEN BATCH] Calculated: Moisture=${avgMoisture.toFixed(2)}, Grade=${finalGrade}, Organic=${finalOrganic}`);
 
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
       include: { exporter: true }
     });
 
-    if (!batch) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+    if (!batch) {
+        console.error("[INSPECTION_API] Critical: Batch not found for certificate generation.");
+        return NextResponse.json({ error: "Batch not found" }, { status: 404 });
+    }
 
     const certificateId = crypto.randomUUID();
     
@@ -106,7 +127,7 @@ export async function POST(req: NextRequest) {
         quantity: `${batch.quantity} ${batch.unit}`, 
         expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
         exporterName: batch.exporter.organization || batch.exporter.name,
-        // Anonymous / Consolidated Inspector Name
+        // If multiple agencies, use Consortium Name
         inspectorName: allInspections.length > 1 ? "Golden Consortium (Aggregated)" : (activeInspector.organization || activeInspector.name),
         moisture: avgMoisture.toFixed(2),
         pesticide: avgPesticide.toFixed(2),
@@ -114,13 +135,12 @@ export async function POST(req: NextRequest) {
         exporterDid: batch.exporter.did || `did:web:exporter:${batch.exporterId}`
     };
 
-    // C. Issue VC (Push Flow) or Generate Link (Pull Flow)
-    // Refactored to use const by isolating the logic
+    // C. Generate VC
     const finalVerifyUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/verify/${certificateId}`;
     
     const qrCode = await QRCode.toDataURL(finalVerifyUrl).catch((err) => {
         console.warn("QR Code Generation failed:", err);
-        return ""; // Fallback
+        return ""; 
     });
 
     const vcPayload = { 
@@ -130,6 +150,7 @@ export async function POST(req: NextRequest) {
     };
 
     // D. Final DB Transaction
+    console.log("[INSPECTION_API] Executing Final DB Transaction (Certificate + VC)...");
     const result = await prisma.$transaction(async (tx) => {
       
       // Update Batch Status
@@ -138,12 +159,12 @@ export async function POST(req: NextRequest) {
           data: { status: "CERTIFIED" } 
       });
       
-      // Save Source of Truth
+      // Save Certificate Data
       await tx.certifyData.create({
         data: certifyDataPayload
       });
 
-      // Create Certificate Record
+      // Create Certificate Record + VC
       const cert = await tx.certificate.create({
         data: {
           id: certificateId,
@@ -170,6 +191,8 @@ export async function POST(req: NextRequest) {
       return cert;
     });
 
+    console.log(`[INSPECTION_API] Success! Certificate Created: ${result.id}`);
+
     return NextResponse.json({ 
       success: true, 
       certificateId: result.id,
@@ -179,7 +202,7 @@ export async function POST(req: NextRequest) {
     }, { status: 201 });
 
   } catch (err: any) {
-    console.error("Certification Error:", err);
+    console.error("[INSPECTION_API] Exception:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

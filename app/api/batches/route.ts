@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
           variety,
           pincode, 
           tests,
-          golden = false 
+          golden  
         } = body;
 
         // 1. Find or Create Exporter

@@ -54,7 +54,6 @@ export default function VoiceNav() {
   }, [voiceLang]);
 
   // Init SpeechRecognition ONCE
-  // Init SpeechRecognition ONCE
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -131,6 +130,20 @@ export default function VoiceNav() {
 
         // --- Form Autofill ---
         if (activeView === "form") {
+          
+          const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
+          const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
+          
+          // Helper to toggle array values
+          const toggleArrayValue = (value: string) => {
+             const currentTests = Array.isArray(currentData.tests) ? [...currentData.tests] : [];
+             if (isChecked && !currentTests.includes(value)) {
+                updateField("tests", [...currentTests, value]);
+             } else if (isUnchecked && currentTests.includes(value)) {
+                updateField("tests", currentTests.filter((t: string) => t !== value));
+             }
+          };
+
           if (text.includes("crop") || text.includes("type")) {
             if (text.includes("rice")) {
               updateField("cropType", "Basmati Rice");
@@ -147,137 +160,42 @@ export default function VoiceNav() {
           } else if (text.includes("quantity") || text.includes("amount")) {
             const digits = text.match(/\d+/)?.[0];
             if (digits) updateField("quantity", digits);
-          } else if (text.includes("organic") || text.includes("certified")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            if (isChecked && !currentTests.includes("Organic")) {
-              currentTests.push("Organic");
-              updateField("tests", currentTests);
-            } else if (isUnchecked && currentTests.includes("Organic")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Organic"
-              );
-              updateField("tests", newTests);
-            }
+          } 
+          
+          // --- TESTS (Mapped to match BatchSubmission.tsx Strings) ---
+          else if (text.includes("organic") || text.includes("certified")) {
+            toggleArrayValue("Organic Certified");
           }
           else if (text.includes("moisture") || text.includes("percentage")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            if (isChecked && !currentTests.includes("Moisture")) {
-              currentTests.push("Moisture");
-              updateField("tests", currentTests);
-            } else if (isUnchecked && currentTests.includes("Moisture")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Moisture"
-              );
-              updateField("tests", newTests);
-            }
+            toggleArrayValue("Moisture Content");
           }
-          else if (text.includes("pesticide") || text.includes("pesticides")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            if (isChecked && !currentTests.includes("Pesticide")) {
-              currentTests.push("Pesticide");
-              updateField("tests", currentTests);
-            } else if (isUnchecked && currentTests.includes("Pesticide")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Pesticide"
-              );
-              updateField("tests", newTests);
-            }
+          else if (text.includes("pesticide") || text.includes("residue")) {
+            toggleArrayValue("Pesticide Residue");
           }
-          else if (text.includes("Aflatoxin") || text.includes("levels")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            if (isChecked && !currentTests.includes("Aflatoxin")) {
-              currentTests.push("Aflatoxin");
-              updateField("tests", currentTests);
-            } else if (isUnchecked && currentTests.includes("Aflatoxin")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Aflatoxin"
-              );
-              updateField("tests", newTests);
-            }
+          else if (text.includes("aflatoxin") || text.includes("levels")) {
+            toggleArrayValue("Aflatoxin Level");
           }
-          else if (text.includes("Heavy") || text.includes("metals")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            if (isChecked && !currentTests.includes("Heavy")) {
-              currentTests.push("Heavy Metals");
-              updateField("tests", currentTests);
-            } else if (isUnchecked && currentTests.includes("Heavy")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Heavy Metals"
-              );
-              updateField("tests", newTests);
-            }
+          else if (text.includes("heavy") || text.includes("metals")) {
+            toggleArrayValue("Heavy Metals");
           }
-          else if (text.includes("grade") || text.includes("grade a")) {
-            const isChecked = text.includes("check") || text.includes("yes") || text.includes("enable") || text.includes("select");
-            const isUnchecked = text.includes("uncheck") || text.includes("no") || text.includes("disable") || text.includes("remove");
-
-            // Get current tests array safely
-            const currentTests = Array.isArray(currentData.tests)
-              ? [...currentData.tests]
-              : [];
-
-            // FIX: Check for the exact string "Grade A"
-            if (isChecked && !currentTests.includes("Grade A")) {
-              currentTests.push("Grade A");
-              updateField("tests", currentTests);
+          else if (text.includes("grade") || text.includes("quality")) {
+            toggleArrayValue("Grade A Quality");
+          }
+          
+          // --- PASSPORT TYPE (Boolean) ---
+          else if (text.includes("golden") || text.includes("regular")) {
+            if (text.includes("regular")) {
+              console.log("Voice Command: Setting Passport Type to Regular");
+              updateField("golden", false); // Matches BatchSubmission interface
             } 
-            // FIX: Check for the exact string "Grade A"
-            else if (isUnchecked && currentTests.includes("Grade A")) {
-              const newTests = currentTests.filter(
-                (t: string) => t !== "Grade A"
-              );
-              updateField("tests", newTests);
+            else if (text.includes("golden")) {
+              console.log("Voice Command: Setting Passport Type to Golden");
+              updateField("golden", true); // Matches BatchSubmission interface
             }
-        }
-        else if (text.includes("golden") || text.includes("regular")) {
-          if (text.includes("regular")) {
-            console.log("Voice Command: Setting Passport Type to Regular");
-            updateField("passportType", "Regular");
-          } 
-          else if (text.includes("golden")) {
-            console.log("Voice Command: Setting Passport Type to Golden");
-            updateField("passportType", "Golden");
           }
-        }
         }
       };
 
-      // --- FIX: Placed INSIDE the 'if' block so 'recognition' is in scope ---
       recognition.onend = () => {
         // Use ref to handle restarts
         if (recognitionRef.current) {
@@ -290,6 +208,7 @@ export default function VoiceNav() {
             console.log("Voice recognition automatically restarted.");
           } catch (e) {
             // Ignore if already started
+            console.warn("Recognition restart ignored: already active.");
           }
         } else {
           setIsListening(false);
@@ -301,17 +220,25 @@ export default function VoiceNav() {
       recognitionRef.current = recognition;
     }
   }, []);
+
   const toggleMic = () => {
     if (isEnabledRef.current) {
+      // TURN OFF
       isEnabledRef.current = false;
-      recognitionRef.current?.stop();
+      try {
+        recognitionRef.current?.stop();
+      } catch(e) { console.log("Stop error ignored"); }
       setIsListening(false);
     } else {
+      // TURN ON
       isEnabledRef.current = true;
       try {
+        // Fix: Wrapped in Try/Catch to prevent "InvalidStateError"
         recognitionRef.current?.start();
       } catch (e) {
-        console.error("Start error:", e);
+        console.warn("Start error (likely already running):", e);
+        // If it was already running, we just ensure visual state matches
+        setIsListening(true); 
       }
     }
   };
